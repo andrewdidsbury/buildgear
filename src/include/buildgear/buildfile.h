@@ -33,6 +33,7 @@ class CBuildFile : public CUtility
       CBuildFile(string filename);
       string GetLocation();
       void Show(void);
+      bool SourceChecksumMismatch(void);
       bool BuildfileChecksumMismatch(void);
       void Parse(void);
       string filename;

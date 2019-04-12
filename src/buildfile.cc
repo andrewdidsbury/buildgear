@@ -92,17 +92,74 @@ void CBuildFile::Show(void)
    cout << endl;
 }
 
+bool CBuildFile::SourceChecksumMismatch(void)
+{
+   string arguments;
+   string command;
+   string source_checksum_file, source_eval_file;
+   int status;
+
+   if (this->type == "native")
+   {
+       source_checksum_file = SOURCE_CHECKSUM_NATIVE_DIR "/" + this->short_name + ".sha256sum";
+       source_eval_file = SOURCE_CHECKSUM_NATIVE_DIR "/" + this->short_name + ".eval";
+   }
+   else
+   {
+      source_checksum_file = SOURCE_CHECKSUM_CROSS_DIR "/" + this->short_name + ".sha256sum";
+      source_eval_file = SOURCE_CHECKSUM_CROSS_DIR "/" + this->short_name + ".eval";
+   }
+
+   arguments =  " --BG_BUILD_FILE '" + filename + "'";
+   arguments += " --BG_ACTION 'verify_source_checksum'";
+   arguments += " --BG_BUILD_FILES_CONFIG '" BUILD_FILES_CONFIG "'";
+   arguments += " --BG_OUTPUT_DIR '" OUTPUT_DIR "'";
+   arguments += " --BG_PACKAGE_DIR '" PACKAGE_DIR "'";
+   arguments += " --BG_BUILD_TYPE '" + type + "'";
+   arguments += " --BG_SYSROOT_DIR '" SYSROOT_DIR "'";
+   arguments += " --BG_WORK_DIR '" WORK_DIR "'";
+   arguments += " --BG_BUILD '" + Config.bf_config[CONFIG_KEY_BUILD] + "'";
+   arguments += " --BG_HOST '" + Config.bf_config[CONFIG_KEY_HOST] + "'";
+   arguments += " --BG_SOURCE_DIR '" + Config.bg_config[CONFIG_KEY_SOURCE_DIR] + "'";
+   arguments += " --BG_SOURCE_SHA256SUM '" + source_checksum_file + "'";
+   arguments += " --BG_SOURCE_EVAL '" + source_eval_file + "'";
+
+   command = SCRIPT " " + arguments;
+   command = "bash --norc --noprofile -O extglob -c 'setsid " + command + " 2>&1' 2>&1";
+
+   status = system(command.c_str());
+   if (status == -1)
+   {
+      cout << "\nError: Could not verify buildfile checksum for '" << name << "'\n";
+      cout << strerror(errno) << endl;
+      exit(EXIT_FAILURE);
+   }
+
+   status = WEXITSTATUS(status);
+   if (status == 1)
+      return true;
+
+   // No checksum mismatch
+   return false;
+}
+
 bool CBuildFile::BuildfileChecksumMismatch(void)
 {
    string arguments;
    string command;
-   string buildfile_checksum_file;
+   string buildfile_checksum_file, buildfile_eval_file;
    int status;
 
    if (this->type == "native")
+   {   
       buildfile_checksum_file = BUILDFILE_CHECKSUM_NATIVE_DIR "/" + this->short_name + ".sha256sum";
+      buildfile_eval_file = BUILDFILE_CHECKSUM_NATIVE_DIR "/" + this->short_name + ".eval";
+   }
    else
+   {
       buildfile_checksum_file = BUILDFILE_CHECKSUM_CROSS_DIR "/" + this->short_name + ".sha256sum";
+      buildfile_eval_file = BUILDFILE_CHECKSUM_CROSS_DIR "/" + this->short_name + ".eval";
+   }
 
    arguments =  " --BG_BUILD_FILE '" + filename + "'";
    arguments += " --BG_ACTION 'verify_buildfile_checksum'";

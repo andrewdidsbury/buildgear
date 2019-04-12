@@ -447,6 +447,16 @@ bool CBuildManager::SourceUpToDate(CBuildFile *buildfile)
    return true;
 }
 
+bool CBuildManager::SourceChecksumMismatch(CBuildFile *buildfile)
+{
+   // Verify sources checksum for buildfiles with build() function only else
+   // assume no checksum mismatch
+   if (!buildfile->source.empty() )
+      return buildfile->SourceChecksumMismatch();
+   else
+      return false;
+}
+
 bool CBuildManager::BuildfileChecksumMismatch(CBuildFile *buildfile)
 {
    // Verify buildfile checksum for buildfiles with build() function only else
@@ -503,8 +513,18 @@ void CBuildManager::Build(list<CBuildFile*> *buildfiles)
    // package vs source age, and mismatching buildfile checksum
    for (it=buildfiles->begin(); it!=buildfiles->end(); it++)
    {
-      if (!PackageUpToDate((*it)) || !SourceUpToDate((*it)) || BuildfileChecksumMismatch((*it)))
+      if ( BuildfileChecksumMismatch( (*it)) )
+      {
+         (*it)->build = true;  
+      }
+      
+      if ( SourceChecksumMismatch( (*it)) )
+      {
          (*it)->build = true;
+      }
+
+      //if (!PackageUpToDate((*it)) || !SourceUpToDate((*it)) || BuildfileChecksumMismatch((*it)))
+      //   (*it)->build = true;
    }
 
    // Set build action of all builds (based on dependencies build status)
@@ -519,7 +539,8 @@ void CBuildManager::Build(list<CBuildFile*> *buildfiles)
       {
          // Then build is needed
          (*it)->build = true;
-      } else
+      } 
+      else
       {
          // Else no build is needed
          (*it)->build = false;

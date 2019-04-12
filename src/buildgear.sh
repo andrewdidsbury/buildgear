@@ -409,6 +409,11 @@ do_buildfile_checksum()
    eval "$BUFFER" 2>/dev/null | sha256sum | awk '{print $1}' > $BG_BUILDFILE_SHA256SUM
 }
 
+do_source_checksum()
+{
+   # TODO
+}
+
 show_buildfile()
 {
    local BUFFER=$(<$BG_BUILD_FILE)
@@ -416,6 +421,36 @@ show_buildfile()
    BUFFER=${BUFFER//\`/\\\`}
    BUFFER="echo -E \"$BUFFER\""
    eval "$BUFFER"
+}
+
+verify_source_checksum()
+{
+   if [ ! -e $BG_SOURCE_SHA256SUM ]; then
+   echo "Source checksum not found"
+    exit 1
+   fi
+
+   local TMPFILE="$BG_BUILD_WORK_DIR/.tmp.source.sha256sum.new"
+
+   # For each source file calculate a checksum and append to our tmp file
+
+   if [ "$source" ]; then
+      for FILE in ${source[@]}; do
+          sha256sum `get_filename $FILE` &>> $TMPFILE
+      done
+   fi
+
+   # compare this to the stored source checksum file, if different then rebuild
+   # diff -w -t -U 0 $FILE.sha256sum.orig $FILE.sha256sum
+
+   DIFF=$(diff -w -t -U 0 $BG_SOURCE_SHA256SUM $TMPFILE) 
+   if [ "$DIFF" != "" ] 
+   then
+      echo "Source checksum mismatch"
+      exit 1
+   fi
+
+   exit 0
 }
 
 verify_buildfile_checksum()
@@ -509,6 +544,12 @@ main()
    # Verify buildfile checksum
    if [ "$BG_ACTION" = "verify_buildfile_checksum" ]; then
       verify_buildfile_checksum
+      exit 0
+   fi
+
+   # Verify source checksum   
+   if [ "$BG_ACTION" = "verify_source_checksum" ]; then
+      verify_source_checksum
       exit 0
    fi
 
