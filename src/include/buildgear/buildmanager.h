@@ -45,6 +45,7 @@ class CBuildManager : public CFileSystem, COptions
       void CleanPackages(void);
       void CleanWork(void);
       string PackagePath(CBuildFile *);
+      bool PackageExists(CBuildFile *);
       bool PackageUpToDate(CBuildFile *);
       bool SourceUpToDate(CBuildFile *);
       bool BuildfileChecksumMismatch(CBuildFile *);

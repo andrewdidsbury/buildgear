@@ -407,11 +407,21 @@ do_buildfile_checksum()
    BUFFER=${BUFFER//\`/\\\`}
    BUFFER="echo -E \"$BUFFER\""
    eval "$BUFFER" 2>/dev/null | sha256sum | awk '{print $1}' > $BG_BUILDFILE_SHA256SUM
+
+   eval "$BUFFER" 2>/dev/null > "$BG_BUILDFILE_SHA256SUM.eval"
 }
 
 do_source_checksum()
 {
-   # TODO
+   echo "## do_source_checksum. source '$source', checksum file '$BG_SOURCE_SHA256SUM'##\n"
+
+   rm "$BG_SOURCE_SHA256SUM"
+
+   if [ "$source" ]; then
+      for FILE in ${source[@]}; do
+          sha256sum `get_filename $FILE` &>> "$BG_SOURCE_SHA256SUM"
+      done
+   fi
 }
 
 show_buildfile()
@@ -426,11 +436,12 @@ show_buildfile()
 verify_source_checksum()
 {
    if [ ! -e $BG_SOURCE_SHA256SUM ]; then
-   echo "Source checksum not found"
+    echo "### Source checksum not found '$BG_BUILD_FILE' ###\n"
     exit 1
    fi
 
-   local TMPFILE="$BG_BUILD_WORK_DIR/.tmp.source.sha256sum.new"
+   local TMPFILE="$BG_SOURCE_SHA256SUM.tmp"
+   rm $TMPFILE
 
    # For each source file calculate a checksum and append to our tmp file
 
@@ -446,15 +457,18 @@ verify_source_checksum()
    DIFF=$(diff -w -t -U 0 $BG_SOURCE_SHA256SUM $TMPFILE) 
    if [ "$DIFF" != "" ] 
    then
-      echo "Source checksum mismatch"
+      echo "### Source checksum mismatch '$BG_BUILD_FILE', diff:\n $DIFF ###\n"
       exit 1
    fi
 
+   echo "### Source checksum ok '$BG_BUILD_FILE' ###\n"
    exit 0
 }
 
 verify_buildfile_checksum()
 {
+   # Calc the checksum and verify it against the file contet
+
    local SHA256SUM SHA256SUM_FILE
    local BUFFER=$(<$BG_BUILD_FILE)
    BUFFER=${BUFFER//\`/\\\`}
@@ -470,6 +484,14 @@ verify_buildfile_checksum()
    if [ "$SHA256SUM" == "$SHA256SUM_FILE" ]; then
       exit 0
    fi
+
+   # The checksum failed, show a diff from the buildfile that was last evaluated
+
+   eval "$BUFFER" 2>/dev/null > "$BG_BUILDFILE_SHA256SUM.new"
+
+   
+   DIFF=$(diff -w -t -U 0 $BG_BUILDFILE_SHA256SUM.eval $BG_BUILDFILE_SHA256SUM.new)   
+   echo "### Buildfile mismatch, diff: $DIFF ###\n"
 
    # Checksum mismatch
    exit 1
@@ -598,6 +620,7 @@ main()
          do_package
          do_footprint
          do_buildfile_checksum
+         do_source_checksum
          if [ "$BG_KEEP_WORK" = "no" ]; then
             do_clean
          fi

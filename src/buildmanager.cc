@@ -237,7 +237,7 @@ void CBuildManager::Do(string action, CBuildFile* buildfile)
    string arguments;
    string footprint_file;
    string checksum_file;
-   string buildfile_checksum_file;
+   string buildfile_checksum_file, source_checksum_file;
    string command;
    stringstream pid;
    char pid_string[PID_MAX_LENGTH];
@@ -248,11 +248,14 @@ void CBuildManager::Do(string action, CBuildFile* buildfile)
       footprint_file = FOOTPRINT_NATIVE_DIR  "/" +  buildfile->short_name + ".footprint";
       checksum_file = CHECKSUM_NATIVE_DIR  "/" + buildfile->short_name + ".sha256sum";
       buildfile_checksum_file = BUILDFILE_CHECKSUM_NATIVE_DIR "/" + buildfile->short_name + ".sha256sum";
-   } else
+      source_checksum_file = SOURCE_CHECKSUM_NATIVE_DIR "/" + buildfile->short_name + ".sha256sum";
+   } 
+   else
    {
       footprint_file = FOOTPRINT_CROSS_DIR  "/" + buildfile->short_name + ".footprint";
       checksum_file = CHECKSUM_CROSS_DIR  "/" + buildfile->short_name + ".sha256sum";
       buildfile_checksum_file = BUILDFILE_CHECKSUM_CROSS_DIR "/" + buildfile->short_name + ".sha256sum";
+      source_checksum_file = SOURCE_CHECKSUM_CROSS_DIR "/" + buildfile->short_name + ".sha256sum";
    }
 
    // Set required script arguments
@@ -271,6 +274,7 @@ void CBuildManager::Do(string action, CBuildFile* buildfile)
    arguments += " --BG_BUILD_FOOTPRINT '" + footprint_file + "'";
    arguments += " --BG_BUILD_SHA256SUM '" + checksum_file + "'";
    arguments += " --BG_BUILDFILE_SHA256SUM '" + buildfile_checksum_file + "'";
+   arguments += " --BG_SOURCE_SHA256SUM '" + source_checksum_file + "'";
    arguments += " --BG_MAX_NAME_LEN '" + to_string(Dependency.max_name_length) + "'";
    arguments += " --BG_MAX_LAYER_LEN '" + to_string(Dependency.max_layer_length) + "'";
    arguments += " --BG_SCRIPT_OUTPUT_FIFO '" + SCRIPT_OUTPUT_FIFO + "'";
@@ -400,6 +404,18 @@ string CBuildManager::PackagePath(CBuildFile *buildfile)
    return package;
 }
 
+bool CBuildManager::PackageExists(CBuildFile *buildfile)
+{
+   string package;
+
+   package = PackagePath(buildfile);
+
+   if (!FileExist(package))
+      return (buildfile->build_function == "no");
+
+   return true;
+}
+
 bool CBuildManager::PackageUpToDate(CBuildFile *buildfile)
 {
    string package;
@@ -452,9 +468,15 @@ bool CBuildManager::SourceChecksumMismatch(CBuildFile *buildfile)
    // Verify sources checksum for buildfiles with build() function only else
    // assume no checksum mismatch
    if (!buildfile->source.empty() )
+   {
+      //printf("***  buildfile '%s' has source '%s'**\n\n", buildfile->short_name.c_str(), buildfile->source.c_str());
       return buildfile->SourceChecksumMismatch();
+   }
    else
+   {
+      //printf("***  buildfile '%s' has no source **\n\n", buildfile->short_name.c_str() );
       return false;
+   }
 }
 
 bool CBuildManager::BuildfileChecksumMismatch(CBuildFile *buildfile)
@@ -513,14 +535,23 @@ void CBuildManager::Build(list<CBuildFile*> *buildfiles)
    // package vs source age, and mismatching buildfile checksum
    for (it=buildfiles->begin(); it!=buildfiles->end(); it++)
    {
+      // Does the package exist!!
+      if ( !PackageExists((*it)) )
+      {
+         printf("Building '%s' because package doesn't exist\n", (*it)->short_name.c_str());
+         (*it)->build = true;  
+      }
+
       if ( BuildfileChecksumMismatch( (*it)) )
       {
+         printf("Building '%s' because buildfile checksum doesn't match\n", (*it)->short_name.c_str());
          (*it)->build = true;  
       }
       
       if ( SourceChecksumMismatch( (*it)) )
       {
-         (*it)->build = true;
+         printf("Building '%s' because source checksum doesn't match (skip)\n", (*it)->short_name.c_str());
+         //(*it)->build = true;
       }
 
       //if (!PackageUpToDate((*it)) || !SourceUpToDate((*it)) || BuildfileChecksumMismatch((*it)))

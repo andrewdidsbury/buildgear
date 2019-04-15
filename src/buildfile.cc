@@ -96,18 +96,16 @@ bool CBuildFile::SourceChecksumMismatch(void)
 {
    string arguments;
    string command;
-   string source_checksum_file, source_eval_file;
+   string source_checksum_file;
    int status;
 
    if (this->type == "native")
    {
        source_checksum_file = SOURCE_CHECKSUM_NATIVE_DIR "/" + this->short_name + ".sha256sum";
-       source_eval_file = SOURCE_CHECKSUM_NATIVE_DIR "/" + this->short_name + ".eval";
    }
    else
    {
       source_checksum_file = SOURCE_CHECKSUM_CROSS_DIR "/" + this->short_name + ".sha256sum";
-      source_eval_file = SOURCE_CHECKSUM_CROSS_DIR "/" + this->short_name + ".eval";
    }
 
    arguments =  " --BG_BUILD_FILE '" + filename + "'";
@@ -122,7 +120,6 @@ bool CBuildFile::SourceChecksumMismatch(void)
    arguments += " --BG_HOST '" + Config.bf_config[CONFIG_KEY_HOST] + "'";
    arguments += " --BG_SOURCE_DIR '" + Config.bg_config[CONFIG_KEY_SOURCE_DIR] + "'";
    arguments += " --BG_SOURCE_SHA256SUM '" + source_checksum_file + "'";
-   arguments += " --BG_SOURCE_EVAL '" + source_eval_file + "'";
 
    command = SCRIPT " " + arguments;
    command = "bash --norc --noprofile -O extglob -c 'setsid " + command + " 2>&1' 2>&1";
@@ -147,18 +144,16 @@ bool CBuildFile::BuildfileChecksumMismatch(void)
 {
    string arguments;
    string command;
-   string buildfile_checksum_file, buildfile_eval_file;
+   string buildfile_checksum_file;
    int status;
 
    if (this->type == "native")
    {   
       buildfile_checksum_file = BUILDFILE_CHECKSUM_NATIVE_DIR "/" + this->short_name + ".sha256sum";
-      buildfile_eval_file = BUILDFILE_CHECKSUM_NATIVE_DIR "/" + this->short_name + ".eval";
    }
    else
    {
       buildfile_checksum_file = BUILDFILE_CHECKSUM_CROSS_DIR "/" + this->short_name + ".sha256sum";
-      buildfile_eval_file = BUILDFILE_CHECKSUM_CROSS_DIR "/" + this->short_name + ".eval";
    }
 
    arguments =  " --BG_BUILD_FILE '" + filename + "'";
