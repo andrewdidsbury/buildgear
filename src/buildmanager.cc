@@ -501,11 +501,14 @@ bool CBuildManager::DepBuildNeeded(CBuildFile *buildfile, time_t age)
    for (it=buildfile->dependency.begin(); it!=buildfile->dependency.end(); ++it)
    {
       if ((*it)->build)
+      {
+         printf("*** Building '%s' because dependency '%s' is being build ***\n", buildfile->short_name.c_str(), (*it)->short_name.c_str());
          return true;
+      }
 
-      package = PackagePath(*it);
-      if (FileExist(package) && (difftime(Age(package), age) > 0))
-         return true;
+      //package = PackagePath(*it);
+      //if (FileExist(package) && (difftime(Age(package), age) > 0))
+      //   return true;
 
       if (DepBuildNeeded(*it, age))
          return true;
@@ -538,20 +541,20 @@ void CBuildManager::Build(list<CBuildFile*> *buildfiles)
       // Does the package exist!!
       if ( !PackageExists((*it)) )
       {
-         printf("Building '%s' because package doesn't exist\n", (*it)->short_name.c_str());
+         printf("*** Building '%s' because package doesn't exist ***\n", (*it)->short_name.c_str());
          (*it)->build = true;  
       }
 
       if ( BuildfileChecksumMismatch( (*it)) )
       {
-         printf("Building '%s' because buildfile checksum doesn't match\n", (*it)->short_name.c_str());
+         printf("*** Building '%s' because buildfile checksum doesn't match ***\n", (*it)->short_name.c_str());
          (*it)->build = true;  
       }
       
       if ( SourceChecksumMismatch( (*it)) )
       {
-         printf("Building '%s' because source checksum doesn't match (skip)\n", (*it)->short_name.c_str());
-         //(*it)->build = true;
+         printf("*** Building '%s' because source checksum doesn't match ***\n", (*it)->short_name.c_str());
+         (*it)->build = true;
       }
 
       //if (!PackageUpToDate((*it)) || !SourceUpToDate((*it)) || BuildfileChecksumMismatch((*it)))

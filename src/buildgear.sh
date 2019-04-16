@@ -405,6 +405,12 @@ do_buildfile_checksum()
 {
    local BUFFER=$(<$BG_BUILD_FILE)
    BUFFER=${BUFFER//\`/\\\`}
+   BUFFER=${BUFFER//\$PKG/DOLLAR_PKG}
+   BUFFER=${BUFFER//\$SRC/DOLLAR_SRC}
+   BUFFER=${BUFFER//\$CORE/DOLLAR_CORE}
+   BUFFER=${BUFFER//\$OUTPUT/DOLLAR_OUTPUT}
+   BUFFER=${BUFFER//\$NATIVE_SYSROOT/DOLLAR_NATIVESYSROOT}
+
    BUFFER="echo -E \"$BUFFER\""
    eval "$BUFFER" 2>/dev/null | sha256sum | awk '{print $1}' > $BG_BUILDFILE_SHA256SUM
 
@@ -422,6 +428,9 @@ do_source_checksum()
           sha256sum `get_filename $FILE` &>> "$BG_SOURCE_SHA256SUM"
       done
    fi
+
+   # Remove the path from the files
+   sed -i 's/\/.*\///g' "$BG_SOURCE_SHA256SUM"
 }
 
 show_buildfile()
@@ -435,11 +444,6 @@ show_buildfile()
 
 verify_source_checksum()
 {
-   if [ ! -e $BG_SOURCE_SHA256SUM ]; then
-    echo "### Source checksum not found '$BG_BUILD_FILE' ###\n"
-    exit 1
-   fi
-
    local TMPFILE="$BG_SOURCE_SHA256SUM.tmp"
    rm $TMPFILE
 
@@ -447,12 +451,19 @@ verify_source_checksum()
 
    if [ "$source" ]; then
       for FILE in ${source[@]}; do
-          sha256sum `get_filename $FILE` &>> $TMPFILE
+          sha256sum `get_filename $FILE` &>> "$TMPFILE"
       done
    fi
 
+   # Remove the path from the files
+   sed -i 's/\/.*\///g' "$TMPFILE"
+
+   if [ ! -e $BG_SOURCE_SHA256SUM ]; then
+    echo "### Source checksum not found '$BG_BUILD_FILE', path '$BG_SOURCE_SHA256SUM' ###\n"
+    exit 1
+   fi
+
    # compare this to the stored source checksum file, if different then rebuild
-   # diff -w -t -U 0 $FILE.sha256sum.orig $FILE.sha256sum
 
    DIFF=$(diff -w -t -U 0 $BG_SOURCE_SHA256SUM $TMPFILE) 
    if [ "$DIFF" != "" ] 
@@ -472,6 +483,12 @@ verify_buildfile_checksum()
    local SHA256SUM SHA256SUM_FILE
    local BUFFER=$(<$BG_BUILD_FILE)
    BUFFER=${BUFFER//\`/\\\`}
+   BUFFER=${BUFFER//\$PKG/DOLLAR_PKG}
+   BUFFER=${BUFFER//\$SRC/DOLLAR_SRC}
+   BUFFER=${BUFFER//\$CORE/DOLLAR_CORE}
+   BUFFER=${BUFFER//\$OUTPUT/DOLLAR_OUTPUT}
+   BUFFER=${BUFFER//\$NATIVE_SYSROOT/DOLLAR_NATIVESYSROOT}
+
    BUFFER="echo -E \"$BUFFER\""
    SHA256SUM=`eval "$BUFFER" 2>/dev/null | sha256sum | awk '{print $1}'`
 
@@ -487,11 +504,11 @@ verify_buildfile_checksum()
 
    # The checksum failed, show a diff from the buildfile that was last evaluated
 
-   eval "$BUFFER" 2>/dev/null > "$BG_BUILDFILE_SHA256SUM.new"
+   eval "$BUFFER" 2>/dev/null > "$BG_BUILDFILE_SHA256SUM.tmp"
 
    
-   DIFF=$(diff -w -t -U 0 $BG_BUILDFILE_SHA256SUM.eval $BG_BUILDFILE_SHA256SUM.new)   
-   echo "### Buildfile mismatch, diff: $DIFF ###\n"
+   DIFF=$(diff -w -t -U 0 $BG_BUILDFILE_SHA256SUM.eval $BG_BUILDFILE_SHA256SUM.tmp)   
+   echo "### Buildfile mismatch, expected $SHA256SUM, got $SHA256SUM_FILE, diff: $DIFF ###\n"
 
    # Checksum mismatch
    exit 1
