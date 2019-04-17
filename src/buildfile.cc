@@ -65,7 +65,8 @@ void CBuildFile::Show(void)
    string arguments;
    string command;
 
-   arguments =  " --BG_BUILD_FILE '" + filename + "'";
+   arguments +=  " --BG_SHORT_NAME '" + this->short_name + "'";
+   arguments +=  " --BG_BUILD_FILE '" + filename + "'";
    arguments += " --BG_ACTION 'read'";
    arguments += " --BG_BUILD_FILES_CONFIG '" BUILD_FILES_CONFIG "'";
    arguments += " --BG_OUTPUT_DIR '" OUTPUT_DIR "'";
@@ -108,7 +109,8 @@ bool CBuildFile::SourceChecksumMismatch(void)
       source_checksum_file = SOURCE_CHECKSUM_CROSS_DIR "/" + this->short_name + ".sha256sum";
    }
 
-   arguments =  " --BG_BUILD_FILE '" + filename + "'";
+   arguments +=  " --BG_SHORT_NAME '" + this->short_name + "'";
+   arguments +=  " --BG_BUILD_FILE '" + filename + "'";
    arguments += " --BG_ACTION 'verify_source_checksum'";
    arguments += " --BG_BUILD_FILES_CONFIG '" BUILD_FILES_CONFIG "'";
    arguments += " --BG_OUTPUT_DIR '" OUTPUT_DIR "'";
@@ -156,7 +158,8 @@ bool CBuildFile::BuildfileChecksumMismatch(void)
       buildfile_checksum_file = BUILDFILE_CHECKSUM_CROSS_DIR "/" + this->short_name + ".sha256sum";
    }
 
-   arguments =  " --BG_BUILD_FILE '" + filename + "'";
+   arguments +=  " --BG_SHORT_NAME '" + this->short_name + "'";
+   arguments +=  " --BG_BUILD_FILE '" + filename + "'";
    arguments += " --BG_ACTION 'verify_buildfile_checksum'";
    arguments += " --BG_BUILD_FILES_CONFIG '" BUILD_FILES_CONFIG "'";
    arguments += " --BG_OUTPUT_DIR '" OUTPUT_DIR "'";

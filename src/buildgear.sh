@@ -401,15 +401,29 @@ do_buildfile()
    . $BG_BUILD_FILE
 }
 
+escape_vars()
+{
+   local tmp_buff=$1
+   tmp_buff=${tmp_buff//\`/\\\`}
+   tmp_buff=${tmp_buff//\$PKG/DOLLAR_PKG}
+   tmp_buff=${tmp_buff//\$SRC/DOLLAR_SRC}
+   tmp_buff=${tmp_buff//\$SOURCE/DOLLAR_SOURCE}
+   tmp_buff=${tmp_buff//\$OUTPUT/DOLLAR_OUTPUT}
+   tmp_buff=${tmp_buff//\$PATH/DOLLAR_PATH}
+   tmp_buff=${tmp_buff//\$CORE/DOLLAR_CORE}
+   tmp_buff=${tmp_buff//\$SYSROOT/DOLLAR_SYSROOT}
+   tmp_buff=${tmp_buff//\$NATIVE_SYSROOT/DOLLAR_NATIVESYSROOT}   
+   tmp_buff=${tmp_buff//\$\{CORE\}/DOLLAR_CORE}
+   tmp_buff=${tmp_buff//\$\{SYSROOT\}/DOLLAR_SYSROOT}
+   tmp_buff=${tmp_buff//\$\{NATIVE_SYSROOT\}/DOLLAR_NATIVESYSROOT}
+
+   echo "$tmp_buff"
+}
+
 do_buildfile_checksum()
 {
    local BUFFER=$(<$BG_BUILD_FILE)
-   BUFFER=${BUFFER//\`/\\\`}
-   BUFFER=${BUFFER//\$PKG/DOLLAR_PKG}
-   BUFFER=${BUFFER//\$SRC/DOLLAR_SRC}
-   BUFFER=${BUFFER//\$CORE/DOLLAR_CORE}
-   BUFFER=${BUFFER//\$OUTPUT/DOLLAR_OUTPUT}
-   BUFFER=${BUFFER//\$NATIVE_SYSROOT/DOLLAR_NATIVESYSROOT}
+   BUFFER=$(escape_vars "$BUFFER")
 
    BUFFER="echo -E \"$BUFFER\""
    eval "$BUFFER" 2>/dev/null | sha256sum | awk '{print $1}' > $BG_BUILDFILE_SHA256SUM
@@ -419,8 +433,6 @@ do_buildfile_checksum()
 
 do_source_checksum()
 {
-   echo "## do_source_checksum. source '$source', checksum file '$BG_SOURCE_SHA256SUM'##\n"
-
    rm "$BG_SOURCE_SHA256SUM"
 
    if [ "$source" ]; then
@@ -459,7 +471,7 @@ verify_source_checksum()
    sed -i 's/\/.*\///g' "$TMPFILE"
 
    if [ ! -e $BG_SOURCE_SHA256SUM ]; then
-    echo "### Source checksum not found '$BG_BUILD_FILE', path '$BG_SOURCE_SHA256SUM' ###\n"
+    echo "### '$BG_SHORT_NAME' Source checksum not found ###"
     exit 1
    fi
 
@@ -468,11 +480,11 @@ verify_source_checksum()
    DIFF=$(diff -w -t -U 0 $BG_SOURCE_SHA256SUM $TMPFILE) 
    if [ "$DIFF" != "" ] 
    then
-      echo "### Source checksum mismatch '$BG_BUILD_FILE', diff:\n $DIFF ###\n"
+      echo "### '$BG_SHORT_NAME' Source checksum mismatch, diff: $DIFF ###"
       exit 1
    fi
 
-   echo "### Source checksum ok '$BG_BUILD_FILE' ###\n"
+   #echo "### '$BG_SHORT_NAME' Source checksum ok ###"
    exit 0
 }
 
@@ -482,12 +494,7 @@ verify_buildfile_checksum()
 
    local SHA256SUM SHA256SUM_FILE
    local BUFFER=$(<$BG_BUILD_FILE)
-   BUFFER=${BUFFER//\`/\\\`}
-   BUFFER=${BUFFER//\$PKG/DOLLAR_PKG}
-   BUFFER=${BUFFER//\$SRC/DOLLAR_SRC}
-   BUFFER=${BUFFER//\$CORE/DOLLAR_CORE}
-   BUFFER=${BUFFER//\$OUTPUT/DOLLAR_OUTPUT}
-   BUFFER=${BUFFER//\$NATIVE_SYSROOT/DOLLAR_NATIVESYSROOT}
+   BUFFER=$(escape_vars "$BUFFER")
 
    BUFFER="echo -E \"$BUFFER\""
    SHA256SUM=`eval "$BUFFER" 2>/dev/null | sha256sum | awk '{print $1}'`
@@ -508,7 +515,7 @@ verify_buildfile_checksum()
 
    
    DIFF=$(diff -w -t -U 0 $BG_BUILDFILE_SHA256SUM.eval $BG_BUILDFILE_SHA256SUM.tmp)   
-   echo "### Buildfile mismatch, expected $SHA256SUM, got $SHA256SUM_FILE, diff: $DIFF ###\n"
+   echo "### '$BG_SHORT_NAME' Buildfile mismatch, expected $SHA256SUM, got $SHA256SUM_FILE, diff: $DIFF ###"
 
    # Checksum mismatch
    exit 1

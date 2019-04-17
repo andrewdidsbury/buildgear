@@ -49,6 +49,7 @@
 #include "buildgear/download.h"
 #include "buildgear/log.h"
 #include "buildgear/cursor.h"
+#include <chrono>
 
 sem_t build_semaphore;
 pthread_mutex_t add_mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -57,6 +58,38 @@ pthread_mutex_t active_builds_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t active_adds_mutex = PTHREAD_MUTEX_INITIALIZER;
 CBuildFile *last_build;
 
+std::string beautify_duration(std::chrono::seconds input_seconds)
+{
+    using namespace std::chrono;
+    typedef duration<int, std::ratio<86400>> days;
+    auto d = duration_cast<days>(input_seconds);
+    input_seconds -= d;
+    auto h = duration_cast<hours>(input_seconds);
+    input_seconds -= h;
+    auto m = duration_cast<minutes>(input_seconds);
+    input_seconds -= m;
+    auto s = duration_cast<seconds>(input_seconds);
+
+    auto dc = d.count();
+    auto hc = h.count();
+    auto mc = m.count();
+    auto sc = s.count();
+
+    std::stringstream ss;
+    ss.fill('0');
+    if (dc) {
+        ss << d.count() << " days ";
+    }
+    if (dc || hc) {
+        ss << h.count() << " hrs ";
+    }
+    if (dc || hc || mc) {
+        ss << m.count() << " mins ";
+    }
+    ss << s.count() << " secs";
+    
+    return ss.str();
+}
 
 class CBuildThread : CBuildManager
 {
@@ -92,7 +125,13 @@ void CBuildThread::operator()()
       BuildOutputPrint();
       pthread_mutex_unlock(&cout_mutex);
 
+      std::chrono::steady_clock::time_point t1 = std::chrono::steady_clock::now();
+
       Do("build", buildfile);
+
+      std::chrono::steady_clock::time_point t2 = std::chrono::steady_clock::now();
+
+      auto build_duration = std::chrono::duration_cast<std::chrono::seconds>(t2 - t1);
 
       // Test for produced package output
       if (FileExist(PackagePath(buildfile)))
@@ -144,6 +183,7 @@ void CBuildThread::operator()()
          cout << setw(Dependency.max_name_length + 2) << "'" + buildfile->name + "'";
          if (buildfile->layer != DEFAULT_LAYER_NAME)
             cout << " [" << buildfile->layer << "]";
+         cout << " (" << beautify_duration(build_duration) << ")";
          Cursor.clear_rest_of_line();
          cout << endl;
          Cursor.reset_ymaxpos();
@@ -259,6 +299,8 @@ void CBuildManager::Do(string action, CBuildFile* buildfile)
    }
 
    // Set required script arguments
+
+   arguments +=  " --BG_SHORT_NAME '" + buildfile->short_name + "'";
    arguments += " --BG_BUILD_FILE '" + buildfile->filename + "'";
    arguments += " --BG_ACTION '" + action + "'";
    arguments += " --BG_BUILD_FILES_CONFIG '" BUILD_FILES_CONFIG "'";
@@ -502,7 +544,7 @@ bool CBuildManager::DepBuildNeeded(CBuildFile *buildfile, time_t age)
    {
       if ((*it)->build)
       {
-         printf("*** Building '%s' because dependency '%s' is being build ***\n", buildfile->short_name.c_str(), (*it)->short_name.c_str());
+         printf("*** Building '%s' because dependency '%s' is being built ***\n", buildfile->short_name.c_str(), (*it)->short_name.c_str());
          return true;
       }
 
