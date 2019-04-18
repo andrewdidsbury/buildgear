@@ -454,6 +454,8 @@ int main (int argc, char *argv[])
    FileSystem.CreateDirectory(CHECKSUM_CROSS_DIR);
    FileSystem.CreateDirectory(BUILDFILE_CHECKSUM_NATIVE_DIR);
    FileSystem.CreateDirectory(BUILDFILE_CHECKSUM_CROSS_DIR);
+   FileSystem.CreateDirectory(SOURCE_CHECKSUM_NATIVE_DIR);
+   FileSystem.CreateDirectory(SOURCE_CHECKSUM_CROSS_DIR);
 
    if (Config.download)
    {
