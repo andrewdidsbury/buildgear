@@ -846,12 +846,16 @@ void CBuildManager::CleanWork(void)
 
 void CBuildManager::BuildOutputTick(CBuildFile *buildfile)
 {
+   #if 0
+   
    if (++buildfile->tick >= 4)
       buildfile->tick = 0;
 
    pthread_mutex_lock(&cout_mutex);
    BuildOutputPrint();
    pthread_mutex_unlock(&cout_mutex);
+
+   #endif
 }
 
 void CBuildManager::BuildOutputPrint()

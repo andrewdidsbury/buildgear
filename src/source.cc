@@ -182,7 +182,7 @@ void CSource::Download(list<CBuildFile*> *buildfiles, string source_dir)
 
       Download.lock();
 
-      item->print_progress();
+      // item->print_progress(); // Don't print initial status
 
       Download.unlock();
 

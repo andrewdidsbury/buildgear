@@ -108,7 +108,7 @@ void CDownload::update_progress()
    for (it = this->active_downloads.begin(); it != this->active_downloads.end(); it++)
    {
       CDownloadItem *item = *it;
-      item->print_progress();
+      //item->print_progress();  // don't print progress
    }
 
    Cursor.clear_below();

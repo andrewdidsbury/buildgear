@@ -32,6 +32,8 @@
 #include <string.h>
 #include "buildgear/cursor.h"
 
+#define DISABLE_CURSOR
+
 pthread_mutex_t cout_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 void cursor_restore()
@@ -60,6 +62,8 @@ CCursor::CCursor()
 
    // Get number of cols in terminal
    no_cols = tgetnum((char *)"co");
+
+#ifndef DISABLE_CURSOR
 
    // Request padding character
    temp = tgetstr((char *)"pc", NULL);
@@ -94,10 +98,12 @@ CCursor::CCursor()
 
    // Relative cursor placement
    ypos = 0;
+   #endif
 }
 
 void CCursor::line_down(int num)
 {
+#ifndef DISABLE_CURSOR
    char *down;
 
    if (num == 0)
@@ -112,11 +118,12 @@ void CCursor::line_down(int num)
 
    if (ypos > max_ypos)
       max_ypos = ypos;
-
+#endif
 }
 
 void CCursor::line_up(int num)
 {
+#ifndef DISABLE_CURSOR
    char *up;
 
    if (num == 0)
@@ -128,12 +135,15 @@ void CCursor::line_up(int num)
    fflush(stdout);
 
    ypos -= num;
+#endif
 }
 
 void CCursor::clear_rest_of_line()
 {
+#ifndef DISABLE_CURSOR
    putp(ce);
    fflush(stdout);
+#endif
 }
 
 void CCursor::clear_below()
@@ -144,29 +154,37 @@ void CCursor::clear_below()
 
 void CCursor::show()
 {
+#ifndef DISABLE_CURSOR
    putp(ve);
    fflush(stdout);
+#endif
 }
 
 void CCursor::hide()
 {
+#ifndef DISABLE_CURSOR
    putp(vi);
    fflush(stdout);
+#endif
 }
 
 void CCursor::restore()
 {
+#ifndef DISABLE_CURSOR
    line_down(max_ypos - ypos);
    show();
    fflush(stdout);
+#endif
 }
 
 void CCursor::ypos_add(int num)
 {
+#ifndef DISABLE_CURSOR
    ypos += num;
 
    if (ypos > max_ypos)
       max_ypos = ypos;
+#endif
 }
 
 int CCursor::get_ypos()
@@ -176,23 +194,29 @@ int CCursor::get_ypos()
 
 void CCursor::update_num_cols()
 {
+#ifndef DISABLE_CURSOR
    struct winsize w;
 
    ioctl(STDOUT_FILENO, TIOCGWINSZ, &w);
 
    no_cols = w.ws_col;
+#endif
 }
 
 void CCursor::enable_wrap()
 {
+#ifndef DISABLE_CURSOR
    putp(SA);
    fflush(stdout);
+#endif
 }
 
 void CCursor::disable_wrap()
 {
+#ifndef DISABLE_CURSOR
    putp(RA);
    fflush(stdout);
+#endif
 }
 
 void CCursor::reset_ymaxpos()
@@ -202,12 +226,16 @@ void CCursor::reset_ymaxpos()
 
 void CCursor::enable_echo()
 {
+#ifndef DISABLE_CURSOR
    if (isatty(fileno(stdin)))
       if (system("stty echo")) ;
+#endif
 }
 
 void CCursor::disable_echo()
 {
+#ifndef DISABLE_CURSOR
    if (isatty(fileno(stdin)))
       if (system("stty -echo")) ;
+#endif
 }
