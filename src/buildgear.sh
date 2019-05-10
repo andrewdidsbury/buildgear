@@ -405,6 +405,7 @@ escape_vars()
 {
    local tmp_buff=$1
    tmp_buff=${tmp_buff//\`/\\\`}
+   tmp_buff=${tmp_buff//\$JOBS/DOLLAR_JOBS}
    tmp_buff=${tmp_buff//\$PKG/DOLLAR_PKG}
    tmp_buff=${tmp_buff//\$SRC/DOLLAR_SRC}
    tmp_buff=${tmp_buff//\$SOURCE/DOLLAR_SOURCE}
