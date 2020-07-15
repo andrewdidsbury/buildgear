@@ -455,10 +455,39 @@ show_buildfile()
    eval "$BUFFER"
 }
 
+print_buildfile_checksum()
+{
+   local SHA256SUM
+   local BUFFER=$(<$BG_BUILD_FILE)
+   BUFFER=$(escape_vars "$BUFFER")
+
+   BUFFER="echo -E \"$BUFFER\""
+   SHA256SUM=`eval "$BUFFER" 2>/dev/null | sha256sum | awk '{print $1}'`
+
+   echo $SHA256SUM
+}
+
+print_source_checksum()
+{
+   local TMPFILE="$BG_SOURCE_SHA256SUM.tmp"
+   rm -f $TMPFILE
+
+   # For each source file calculate a checksum and append to our tmp file
+
+   if [ "$source" ]; then
+      for FILE in ${source[@]}; do
+          sha256sum `get_filename $FILE` &>> "$TMPFILE"
+      done
+   fi
+
+   SHA256SUM=`sha256sum "$TMPFILE" | awk '{print $1}'`
+   echo $SHA256SUM
+}
+
 verify_source_checksum()
 {
    local TMPFILE="$BG_SOURCE_SHA256SUM.tmp"
-   rm $TMPFILE
+   rm -f $TMPFILE
 
    # For each source file calculate a checksum and append to our tmp file
 
@@ -597,6 +626,18 @@ main()
    # Verify source checksum   
    if [ "$BG_ACTION" = "verify_source_checksum" ]; then
       verify_source_checksum
+      exit 0
+   fi
+
+   # Get the buildfile checksum
+   if [ "$BG_ACTION" = "print_buildfile_checksum" ]; then
+      print_buildfile_checksum
+      exit 0
+   fi
+
+   # Get the source checksum
+   if [ "$BG_ACTION" = "print_source_checksum" ]; then
+      print_source_checksum
       exit 0
    fi
 

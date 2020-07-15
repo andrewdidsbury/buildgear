@@ -35,6 +35,8 @@ class CBuildFile : public CUtility
       void Show(void);
       bool SourceChecksumMismatch(void);
       bool BuildfileChecksumMismatch(void);
+      string GetSourceChecksum(void);
+      string GetBuildfileChecksum(void);
       void Parse(void);
       string filename;
       string description;
@@ -46,6 +48,7 @@ class CBuildFile : public CUtility
       string release;
       string source;
       string depends;
+      string package_manager;
 
       struct
       {

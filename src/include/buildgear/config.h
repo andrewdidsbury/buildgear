@@ -113,8 +113,10 @@ class CConfig : public CUtility
 #define FOOTPRINT_CROSS_DIR      ".footprint/cross"
 #define CHECKSUM_NATIVE_DIR      ".checksum/native"
 #define CHECKSUM_CROSS_DIR       ".checksum/cross"
+#define BUILDFILE_CHECKSUM_DIR         ROOT_DIR "/buildfile-checksum"
 #define BUILDFILE_CHECKSUM_NATIVE_DIR  ROOT_DIR "/buildfile-checksum/native"
 #define BUILDFILE_CHECKSUM_CROSS_DIR   ROOT_DIR "/buildfile-checksum/cross"
+#define SOURCE_CHECKSUM_DIR         ROOT_DIR "/source-checksum"
 #define SOURCE_CHECKSUM_NATIVE_DIR  ROOT_DIR "/source-checksum/native"
 #define SOURCE_CHECKSUM_CROSS_DIR   ROOT_DIR "/source-checksum/cross"
 #define BUILD_FILE               "Buildfile"
@@ -140,6 +142,7 @@ class CConfig : public CUtility
 #define KEY_DEPENDS              "depends"
 #define KEY_OPTIONS_             "options"
 #define KEY_LAYER                "layer"
+#define KEY_PACKAGE_MANAGER      "package_manager"
 #define KEY_BUILD_FUNCTION       "build_function"
 #define KEY_CHECK_FUNCTION       "check_function"
 #define KEY_CONFIG_RETURN        "config_return"
@@ -156,6 +159,9 @@ class CConfig : public CUtility
 #define CONFIG_KEY_SSH_PUBLIC_KEYFILE        "ssh_public_key"
 #define CONFIG_KEY_SSH_PRIVATE_KEYFILE       "ssh_private_key"
 #define CONFIG_KEY_LOG_ROTATION              "log_rotation"
+#define CONFIG_KEY_PKG_MANAGER               "pkg_manager"
+#define CONFIG_KEY_PKG_MANAGER_CREDS         "pkg_manager_creds"
+
 
 // Buildfiles config
 #define CONFIG_KEY_DEFAULT_NAME_PREFIX       "default_name_prefix"

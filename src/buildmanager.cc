@@ -50,6 +50,7 @@
 #include "buildgear/log.h"
 #include "buildgear/cursor.h"
 #include <chrono>
+#include <regex>
 
 sem_t build_semaphore;
 pthread_mutex_t add_mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -559,6 +560,338 @@ bool CBuildManager::DepBuildNeeded(CBuildFile *buildfile, time_t age)
    return false;
 }
 
+bool CBuildManager::IsBuildRequired( CBuildFile * b )
+{
+   // Does the package exist?
+   if ( !PackageExists( b ) )
+   {
+      printf("*** Building '%s' because package doesn't exist ***\n", b->short_name.c_str());
+      return true;
+   }
+
+   // Does the buildfile checksum match?
+   if ( BuildfileChecksumMismatch( b ) )
+   {
+      printf("*** Building '%s' because buildfile checksum doesn't match ***\n", b->short_name.c_str());
+      return true;
+   }
+
+   // Does the source checksum match ?
+   if ( SourceChecksumMismatch( b  ) )
+   {
+      printf("*** Building '%s' because source checksum doesn't match ***\n", b->short_name.c_str());
+      return true;
+   }
+
+   return false;
+}
+
+bool CBuildManager::DownloadFile( string url, string filename )
+{
+   printf("Attempting download of '%s' to path '%s'...\n", url.c_str(), filename.c_str() );
+
+   FILE * fp = fopen(filename.c_str(),"wb");
+   if ( fp == NULL )
+   {
+      return false; 
+   }
+
+   CURL * curl = curl_easy_init();                                                                                                                                                                                                                                                           
+   if (curl == NULL)
+   {
+      return false;
+   }
+       
+   curl_easy_setopt(curl, CURLOPT_FAILONERROR, 1L);
+   curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0L);
+   curl_easy_setopt(curl, CURLOPT_TIMEOUT, 20L);
+   curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+   curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, NULL);
+   curl_easy_setopt(curl, CURLOPT_WRITEDATA, fp);
+   CURLcode res = curl_easy_perform(curl);
+   curl_easy_cleanup(curl);
+   fclose(fp);
+
+   printf("Download from package manager %s\n", (res == CURLE_OK) ? "SUCCEEDED!" : "FAILED :(" );
+
+   if ( res != CURLE_OK )
+   {
+      //remove(filename.c_str());
+   }
+
+   return res == CURLE_OK;
+}
+
+size_t CurlCallback(char *contents, size_t size, size_t nmemb, std::string *s)
+{
+    s->append( contents, nmemb);
+    return nmemb;
+}
+
+bool CBuildManager::UploadFile( string url, string auth, string file)
+{
+   printf("Attempting to upload file '%s' to '%s'...\n", file.c_str(), url.c_str() );
+
+   CURL *curl;
+   CURLcode res;
+   struct stat file_info;
+   curl_off_t speed_upload, total_time;
+   FILE *fd;
+ 
+   fd = fopen(file.c_str(), "rb");
+   if(fd == NULL)
+   {
+      printf("Failed to open file\n");
+      return false;
+   }
+ 
+   // get the file size
+   if(fstat(fileno(fd), &file_info) != 0)
+   {
+      printf("Failed to get file size\n");
+      return false;
+   }
+ 
+   curl = curl_easy_init();
+  
+   if(curl) 
+   { 
+      curl_easy_setopt(curl, CURLOPT_FAILONERROR, 1L);
+      curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0L);
+      curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 0L);
+      curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+      curl_easy_setopt(curl, CURLOPT_HTTPAUTH, CURLAUTH_ANY);
+      curl_easy_setopt(curl, CURLOPT_USERPWD, auth.c_str());  
+      curl_easy_setopt(curl, CURLOPT_UPLOAD, 1L);
+      curl_easy_setopt(curl, CURLOPT_READDATA, fd);
+      curl_easy_setopt(curl, CURLOPT_INFILESIZE_LARGE, (curl_off_t)file_info.st_size);
+      curl_easy_setopt(curl, CURLOPT_VERBOSE, 0L);
+ 
+      res = curl_easy_perform(curl);
+      curl_easy_cleanup(curl);
+
+      // Check for errors
+      if(res != CURLE_OK) 
+      {
+         printf("File upload failed, res %d\n", res);
+         return false;
+      }
+      else 
+      {
+         printf("File upload complete\n");         
+      }
+  }
+  fclose(fd);
+  return true;
+}
+
+void CBuildManager::PushToPackageManager( list<CBuildFile*> *buildfiles )
+{
+   string creds = Config.bg_config[CONFIG_KEY_PKG_MANAGER_CREDS];
+   if ( creds.empty() )
+   {
+      return;
+   }
+
+   printf("Attempting upload of all build output to Package Manager\n");
+
+   for ( auto it = buildfiles->begin() ; it != buildfiles->end() ; it++ )
+   {
+      CBuildFile * b = *it;
+      if ( b->package_manager == "no" || b->package_manager == "false" )
+      {
+         printf(" Skipping upload of '%s'\n", b->short_name.c_str());
+         continue;
+      }
+
+      // Search for this packages components on the PM
+
+      // <name>/<chk>/<short_name>.src.sha256sum
+      // <name>/<chk>/<short_name>.build.sha256sum
+      // <name>/<chk>/<short_name>-<version>>-<release>.pkg.tar.gz
+
+      string src_checksum_url, build_checksum_url, package_url;
+      GetPackageManagerUrls( b, src_checksum_url, build_checksum_url, package_url );
+
+      // Confirm that all components are present on the package manager
+
+      if ( !SearchPackageManger( src_checksum_url ) || 
+           !SearchPackageManger( build_checksum_url ) || 
+           !SearchPackageManger( package_url ) )
+      {
+         // If not then push this item
+
+         // Download the buildfile checksums and package
+         string src_checksum_path, build_checksum_path, package_path;
+         GetPackageManagerFilePaths( b, src_checksum_path, build_checksum_path, package_path );
+
+         string base_url = Config.bg_config[CONFIG_KEY_PKG_MANAGER];
+
+         if ( UploadFile(base_url + src_checksum_url, creds, src_checksum_path) &&
+              UploadFile(base_url + build_checksum_url, creds, build_checksum_path) &&
+              UploadFile(base_url + package_url, creds, package_path) )
+         {
+            printf("  Successfully pushed '%s' to Package Manager\n", b->short_name.c_str() );
+         }
+         else
+         {
+            printf("  Failed to push '%s' to Package Manager\n", b->short_name.c_str() );
+         }
+      }
+
+      // Just try the first package
+      break;
+   }
+}
+
+bool CBuildManager::SearchPackageManger( string name )
+{
+   CURL *curl;
+   CURLcode res;
+
+   curl = curl_easy_init();
+   std::string s;
+   if(curl)
+   {
+      // https://nexus.build-cluster.lan/repository/buildgear/arran/
+      string url = Config.bg_config[CONFIG_KEY_PKG_MANAGER];
+
+      // remove trailing slash if present
+      if ( url[url.length()-1] == '/' ) url = url.substr(0, url.length()-1);
+     
+      size_t idx1 = url.find("/repository/");
+      if ( idx1 == string::npos ) return false;
+
+      string server = url.substr(0, idx1);
+
+      size_t idx2 = url.rfind("/");
+      if ( idx2 == string::npos ) return false;
+
+      string repo = url.substr(idx1 + 12, idx2 - (idx1 + 12) );
+      string project = url.substr(idx2 + 1 );
+      
+      // Substitute %2F for '/'
+      name = std::regex_replace( name, std::regex( "\\/" ), "%2F" );
+
+      //https://nexus.build-cluster.lan/service/rest/v1/search?repository=buildgear&name=test%2Farran%2Fcross%2Ff548249369e28b79569dd045f562cfd4e4ba990160dfde9089ff484c72ab0484-bc723ff591689ad2a3a0fe58c2af10d6167920b538ffdfb1e87b416f8c3bf6db%2Fbusybox%231.31.1-1.pkg.tar.gz
+
+      stringstream url_str;
+      url_str<<server<<"/service/rest/v1/search?repository="<<repo<<"&name="<<project<<"/"<<name;
+
+      //printf("original url = '%s', idx1 = %d, idx2 = %d\n", url.c_str(), idx1, idx2 );
+      printf("Searching on server '%s' repo '%s' project '%s' for name '%s'. URL '%s'\n",
+         server.c_str(), repo.c_str(), project.c_str(), name.c_str(), url_str.str().c_str() );
+
+      curl_easy_setopt(curl, CURLOPT_URL, url_str.str().c_str() );
+
+      curl_easy_setopt(curl, CURLOPT_FAILONERROR, 1L);
+      curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0L);
+      curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 0L);
+      curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, CurlCallback);
+      curl_easy_setopt(curl, CURLOPT_WRITEDATA, &s);
+      curl_easy_setopt (curl, CURLOPT_VERBOSE, 0L);
+
+      // Perform the request
+
+      res = curl_easy_perform(curl);
+      curl_easy_cleanup(curl);
+
+      if(res != CURLE_OK)
+      {
+         printf("  Search failed %d\n", res );
+         return false;
+      } 
+
+      // Check if we got an empty items array - which means no result found
+
+      if ( s.find("\"items\": []") != std::string::npos || s.find("\"items\" : [ ]") != std::string::npos )
+      {
+         printf("  Search found zero results\n" );
+         return false;
+      }
+      
+      printf("  Search found package\n'%s'\n", s.c_str() );
+      return true;      
+   }
+
+   return false;
+}
+
+bool CBuildManager::DownloadPackage( CBuildFile * b )
+{
+   if ( b->package_manager == "no" || b->package_manager == "false" )
+   {
+      printf("Package manager disabled for '%s'\n", b->short_name.c_str());
+      return false;
+   }
+
+   if ( Config.bg_config[CONFIG_KEY_PKG_MANAGER].empty() )
+   {
+      printf("Package manager not configured\n");
+      return false;
+   }
+
+   // Download the buildfile checksums and package
+   string src_checksum_path, build_checksum_path, package_path;
+   GetPackageManagerFilePaths( b, src_checksum_path, build_checksum_path, package_path );
+
+   string src_checksum_url, build_checksum_url, package_url;
+   GetPackageManagerUrls( b, src_checksum_url, build_checksum_url, package_url );
+
+   string base_url = Config.bg_config[CONFIG_KEY_PKG_MANAGER];
+
+   if ( DownloadFile(base_url + src_checksum_url, src_checksum_path) &&
+        DownloadFile(base_url + build_checksum_url, build_checksum_path) &&
+        DownloadFile(base_url + package_url, package_path) )
+   {
+      // Downloaded all files!
+      return true;
+   }
+   else
+   {
+      return false;
+   }
+}
+
+void CBuildManager::GetPackageManagerFilePaths( CBuildFile * b, string & src_checksum_path, string & build_checksum_path, string & package_path )
+{
+   stringstream src_chk_file;
+   src_chk_file << SOURCE_CHECKSUM_DIR << "/" << b->type << "/" << b->short_name << ".sha256sum";
+   src_checksum_path = src_chk_file.str();
+
+   stringstream build_chk_file;   
+   build_chk_file << BUILDFILE_CHECKSUM_DIR << "/" << b->type << "/" << b->short_name << ".sha256sum";
+   build_checksum_path = build_chk_file.str();
+
+   stringstream pkg_file;
+   pkg_file << PACKAGE_DIR << "/" << b->type << "/" << b->short_name << "#" << b->version << "-" << b->release << PACKAGE_EXTENSION;
+   package_path = pkg_file.str();
+}
+
+void CBuildManager::GetPackageManagerUrls( CBuildFile * b, string & src_checksum_url, string & build_checksum_url, string & package_url )
+{
+   string base_url = Config.bg_config[CONFIG_KEY_PKG_MANAGER];
+
+   // https://nexus.build-cluster.lan/repository/buildgear/arran/cross/name/chk/name.src.sha256sum
+   // https://nexus.build-cluster.lan/repository/buildgear/arran/cross/name/chk/name.build.sha256sum
+   // https://nexus.build-cluster.lan/repository/buildgear/arran/cross/name/chk/name#version.release.tar.gz
+
+   string chk = b->GetSourceChecksum() + "-" + b->GetBuildfileChecksum();
+
+   stringstream src_str;
+   src_str << "/" << b->name << "/" << chk << "/" << b->short_name << ".src.sha256sum";
+   src_checksum_url = src_str.str();
+
+   stringstream build_str;
+   build_str << "/" << b->name << "/" << chk << "/" << b->short_name << ".build.sha256sum";
+   build_checksum_url = build_str.str();
+
+   // Note that filename is slightly different, sonatype does not like '#'
+   stringstream pkg_str;
+   pkg_str << "/" << b->name << "/" << chk << "/" << b->short_name << "-" << b->version << "-" << b->release << PACKAGE_EXTENSION;
+   package_url = pkg_str.str();
+}
+
 void CBuildManager::Build(list<CBuildFile*> *buildfiles)
 {
    list<CBuildFile*>::iterator it;
@@ -576,50 +909,52 @@ void CBuildManager::Build(list<CBuildFile*> *buildfiles)
    thread script_output_thread(script_output);
    script_output_thread.detach();
 
-   // Set build action of all builds based on package vs. buildfile age,
-   // package vs source age, and mismatching buildfile checksum
+   int c = 0;
+   // Set build action based on source and buildfile checksums and package existance
    for (it=buildfiles->begin(); it!=buildfiles->end(); it++)
    {
-      // Does the package exist!!
-      if ( !PackageExists((*it)) )
-      {
-         printf("*** Building '%s' because package doesn't exist ***\n", (*it)->short_name.c_str());
-         (*it)->build = true;  
-      }
-
-      if ( BuildfileChecksumMismatch( (*it)) )
-      {
-         printf("*** Building '%s' because buildfile checksum doesn't match ***\n", (*it)->short_name.c_str());
-         (*it)->build = true;  
-      }
+      CBuildFile * b = *it;
+      printf("   %d - %s\n", c, b->short_name.c_str() );
+      c++;
       
-      if ( SourceChecksumMismatch( (*it)) )
+      // Is a build required ?
+      if ( IsBuildRequired( b ) )
       {
-         printf("*** Building '%s' because source checksum doesn't match ***\n", (*it)->short_name.c_str());
-         (*it)->build = true;
+         // Can we download the pacakge from the package manager?
+         if ( DownloadPackage( b ) )
+         {
+            // Double check if a build is still required
+            if ( IsBuildRequired( b ) )
+            {
+               b->build = true;
+            }
+         }
+         else
+         {
+            b->build = true;
+         }
       }
-
-      //if (!PackageUpToDate((*it)) || !SourceUpToDate((*it)) || BuildfileChecksumMismatch((*it)))
-      //   (*it)->build = true;
    }
 
    // Set build action of all builds (based on dependencies build status)
    for (it=buildfiles->begin(); it!=buildfiles->end(); it++)
    {
+      CBuildFile * b = *it;
+
       // Skip if build action already set
-      if ((*it)->build)
+      if ( b->build)
          continue;
 
       // If one or more dependencies needs to be build
-      if (DepBuildNeeded(*it, numeric_limits<time_t>::max()))
+      if (DepBuildNeeded(b, numeric_limits<time_t>::max()))
       {
          // Then build is needed
-         (*it)->build = true;
+         b->build = true;
       } 
       else
       {
          // Else no build is needed
-         (*it)->build = false;
+         b->build = false;
       }
    }
 
@@ -703,6 +1038,14 @@ void CBuildManager::Build(list<CBuildFile*> *buildfiles)
       }
       sem_destroy(&build_semaphore);
    }
+
+   // Build is complete, if we have package manager credentials then attempt to push
+
+   if ( !Config.bg_config[CONFIG_KEY_PKG_MANAGER].empty() && !Config.bg_config[CONFIG_KEY_PKG_MANAGER_CREDS].empty() )
+   {
+      PushToPackageManager( buildfiles );
+   }
+
    // Building done - clean up build script fifo
    unlink(SCRIPT_OUTPUT_FIFO.c_str());
 }

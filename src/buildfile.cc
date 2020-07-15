@@ -65,8 +65,8 @@ void CBuildFile::Show(void)
    string arguments;
    string command;
 
-   arguments +=  " --BG_SHORT_NAME '" + this->short_name + "'";
-   arguments +=  " --BG_BUILD_FILE '" + filename + "'";
+   arguments += " --BG_SHORT_NAME '" + this->short_name + "'";
+   arguments += " --BG_BUILD_FILE '" + filename + "'";
    arguments += " --BG_ACTION 'read'";
    arguments += " --BG_BUILD_FILES_CONFIG '" BUILD_FILES_CONFIG "'";
    arguments += " --BG_OUTPUT_DIR '" OUTPUT_DIR "'";
@@ -109,8 +109,8 @@ bool CBuildFile::SourceChecksumMismatch(void)
       source_checksum_file = SOURCE_CHECKSUM_CROSS_DIR "/" + this->short_name + ".sha256sum";
    }
 
-   arguments +=  " --BG_SHORT_NAME '" + this->short_name + "'";
-   arguments +=  " --BG_BUILD_FILE '" + filename + "'";
+   arguments += " --BG_SHORT_NAME '" + this->short_name + "'";
+   arguments += " --BG_BUILD_FILE '" + filename + "'";
    arguments += " --BG_ACTION 'verify_source_checksum'";
    arguments += " --BG_BUILD_FILES_CONFIG '" BUILD_FILES_CONFIG "'";
    arguments += " --BG_OUTPUT_DIR '" OUTPUT_DIR "'";
@@ -158,8 +158,8 @@ bool CBuildFile::BuildfileChecksumMismatch(void)
       buildfile_checksum_file = BUILDFILE_CHECKSUM_CROSS_DIR "/" + this->short_name + ".sha256sum";
    }
 
-   arguments +=  " --BG_SHORT_NAME '" + this->short_name + "'";
-   arguments +=  " --BG_BUILD_FILE '" + filename + "'";
+   arguments += " --BG_SHORT_NAME '" + this->short_name + "'";
+   arguments += " --BG_BUILD_FILE '" + filename + "'";
    arguments += " --BG_ACTION 'verify_buildfile_checksum'";
    arguments += " --BG_BUILD_FILES_CONFIG '" BUILD_FILES_CONFIG "'";
    arguments += " --BG_OUTPUT_DIR '" OUTPUT_DIR "'";
@@ -191,6 +191,90 @@ bool CBuildFile::BuildfileChecksumMismatch(void)
    return false;
 }
 
+string CBuildFile::GetSourceChecksum(void)
+{
+  string arguments;
+  string command;
+
+  arguments += " --BG_SHORT_NAME '" + this->short_name + "'";
+  arguments += " --BG_BUILD_FILE '" + filename + "'";
+  arguments += " --BG_ACTION 'print_source_checksum'";
+  arguments += " --BG_BUILD_FILES_CONFIG '" BUILD_FILES_CONFIG "'";
+  arguments += " --BG_OUTPUT_DIR '" OUTPUT_DIR "'";
+  arguments += " --BG_PACKAGE_DIR '" PACKAGE_DIR "'";
+  arguments += " --BG_BUILD_TYPE '" + type + "'";
+  arguments += " --BG_SYSROOT_DIR '" SYSROOT_DIR "'";
+  arguments += " --BG_WORK_DIR '" WORK_DIR "'";
+  arguments += " --BG_BUILD '" + Config.bf_config[CONFIG_KEY_BUILD] + "'";
+  arguments += " --BG_HOST '" + Config.bf_config[CONFIG_KEY_HOST] + "'";
+  arguments += " --BG_SOURCE_DIR '" + Config.bg_config[CONFIG_KEY_SOURCE_DIR] + "'";
+
+  command = SCRIPT " " + arguments;
+  command = "bash --norc --noprofile -O extglob -c 'setsid " + command + " 2>&1' 2>&1";
+
+  char buffer[128];
+  std::string result = "";
+  FILE* pipe = popen(command.c_str(), "r");
+  if (!pipe) throw std::runtime_error("popen() failed!");
+  try 
+  {
+    // Read the first line, remove the newline
+    if (fgets(buffer, sizeof buffer, pipe) != NULL) 
+    {
+      size_t len = strlen(buffer);
+      if ( len > 0 && buffer[len-1] == '\n' ) buffer[len-1] = 0;
+      result += buffer;
+    }
+  } 
+  catch (...) 
+  {
+  }
+  pclose(pipe);
+  return result;
+}
+
+string CBuildFile::GetBuildfileChecksum(void)
+{
+  string arguments;
+  string command;
+
+  arguments += " --BG_SHORT_NAME '" + this->short_name + "'";
+  arguments += " --BG_BUILD_FILE '" + filename + "'";
+  arguments += " --BG_ACTION 'print_buildfile_checksum'";
+  arguments += " --BG_BUILD_FILES_CONFIG '" BUILD_FILES_CONFIG "'";
+  arguments += " --BG_OUTPUT_DIR '" OUTPUT_DIR "'";
+  arguments += " --BG_PACKAGE_DIR '" PACKAGE_DIR "'";
+  arguments += " --BG_BUILD_TYPE '" + type + "'";
+  arguments += " --BG_SYSROOT_DIR '" SYSROOT_DIR "'";
+  arguments += " --BG_WORK_DIR '" WORK_DIR "'";
+  arguments += " --BG_BUILD '" + Config.bf_config[CONFIG_KEY_BUILD] + "'";
+  arguments += " --BG_HOST '" + Config.bf_config[CONFIG_KEY_HOST] + "'";
+  arguments += " --BG_SOURCE_DIR '" + Config.bg_config[CONFIG_KEY_SOURCE_DIR] + "'";
+
+  command = SCRIPT " " + arguments;
+  command = "bash --norc --noprofile -O extglob -c 'setsid " + command + " 2>&1' 2>&1";
+
+  char buffer[128];
+  std::string result = "";
+  FILE* pipe = popen(command.c_str(), "r");
+  if (!pipe) throw std::runtime_error("popen() failed!");
+  try 
+  {
+    // Read the first line, remove the newline
+    if (fgets(buffer, sizeof buffer, pipe) != NULL) 
+    {
+      size_t len = strlen(buffer);
+      if ( len > 0 && buffer[len-1] == '\n' ) buffer[len-1] = 0;
+      result += buffer;
+    }
+  } 
+  catch (...) 
+  {
+  }
+  pclose(pipe);
+  return result;
+}
+
 void CBuildFile::Parse(void)
 {
    FILE *fp;
@@ -209,6 +293,7 @@ void CBuildFile::Parse(void)
        ; echo release=$release \
        ; echo source=${source[@]} \
        ; echo depends=${depends[@]} \
+       ; echo package_manager=${package_manager[@]} \
        ; echo options=${options[@]} \
        ; echo layer=$layer \
        ; typeset -F build &> /dev/null && echo build_function=yes || echo build_function=no \
@@ -301,6 +386,8 @@ void CBuildFile::Parse(void)
          source = value;
       if (key == KEY_DEPENDS)
          depends = value;
+      if (key == KEY_PACKAGE_MANAGER)
+         package_manager = value;
       if (key == KEY_BUILD_FUNCTION)
          build_function = value;
       if (key == KEY_CHECK_FUNCTION)

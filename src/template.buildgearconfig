@@ -33,3 +33,10 @@
 
 # Number of rotated logs
 #log_rotation=5
+
+# Package manager URL, https://<server-name>/repository/<repo-name>/<project-name>/
+#pkg_manager=
+
+# Package manager credentials, username:password
+#pkg_manager_creds=
+

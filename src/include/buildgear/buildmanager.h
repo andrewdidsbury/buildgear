@@ -54,10 +54,22 @@ class CBuildManager : public CFileSystem, COptions
       void BuildOutputTick(CBuildFile *buildfile);
       void BuildOutputPrint(void);
       void KillBuilds(void);
+      bool IsBuildRequired( CBuildFile * );
+      bool DownloadPackage( CBuildFile * );
+      
+      void PushToPackageManager( list<CBuildFile*> *buildfiles );
+      bool SearchPackageManger( string name );
+
       list<CBuildFile*> active_builds;
       list<CBuildFile*> active_adds;
       bool build_error;
    private:
+
+      bool UploadFile( string url, string auth, string file);
+      bool DownloadFile( string url, string filename );
+
+      void GetPackageManagerUrls( CBuildFile * b, string & src_checksum_url, string & build_checksum_url, string & package_url );
+      void GetPackageManagerFilePaths( CBuildFile * b, string & src_checksum_path, string & build_checksum_path, string & package_path );
 };
 
 #define PID_MAX_LENGTH 10

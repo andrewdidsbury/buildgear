@@ -64,6 +64,9 @@ CManifest     Manifest;
 
 int main (int argc, char *argv[])
 {
+   /* Init curl */
+   curl_global_init(CURL_GLOBAL_ALL);
+
    /* Debug stream option */
    Debug.On() = false;
 

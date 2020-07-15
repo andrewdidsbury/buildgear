@@ -137,7 +137,7 @@ void CSource::Download(list<CBuildFile*> *buildfiles, string source_dir)
    CreateDirectory(source_dir);
 
    /* Initialize the multi curl element */
-   curl_global_init(CURL_GLOBAL_ALL);
+   
    Download.curlm = curl_multi_init();
 
    if (stoi(Config.bg_config[CONFIG_KEY_DOWNLOAD_CONNECTIONS])) {

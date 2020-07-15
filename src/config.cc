@@ -32,6 +32,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
+#include <regex>
 #include "buildgear/config.h"
 #include "buildgear/configfile.h"
 
@@ -61,6 +62,8 @@ CConfig::CConfig()
    bg_config_default[CONFIG_KEY_SSH_PUBLIC_KEYFILE] = home_dir + "/.ssh/id_rsa.pub";
    bg_config_default[CONFIG_KEY_SSH_PRIVATE_KEYFILE] = home_dir + "/.ssh/id_rsa";
    bg_config_default[CONFIG_KEY_LOG_ROTATION] = "5";
+   bg_config_default[CONFIG_KEY_PKG_MANAGER] = "";
+   bg_config_default[CONFIG_KEY_PKG_MANAGER_CREDS] = "";
 
    // Default buildfiles options
    bf_config[CONFIG_KEY_DOWNLOAD_MIRROR] = "";
@@ -176,6 +179,15 @@ void CConfig::SetConfig(void)
       cout << Config.key << "'.\n";
       exit(EXIT_FAILURE);
    }
+
+   // escape any quotes, brackets, etc to allow bash processing to work when loading config
+
+   Config.value = std::regex_replace( Config.value, std::regex( "\\\"" ), "\\\"" );
+   Config.value = std::regex_replace( Config.value, std::regex( "\\'" ), "\\'" );
+   Config.value = std::regex_replace( Config.value, std::regex( "\\(" ), "\\(" );
+   Config.value = std::regex_replace( Config.value, std::regex( "\\)" ), "\\)" );
+
+   //printf("  Setting '%s' = '%s'\n", Config.key.c_str(), Config.value.c_str());
 
    if (Config.global)
       ConfigFile.Update(Config.home_dir + GLOBAL_CONFIG_FILE);

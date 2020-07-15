@@ -78,6 +78,8 @@ CConfigFile::CConfigFile(void)
    options.push_back(new CConfigOption(CONFIG_KEY_SSH_PUBLIC_KEYFILE,      NULL));
    options.push_back(new CConfigOption(CONFIG_KEY_SSH_PRIVATE_KEYFILE,     NULL));
    options.push_back(new CConfigOption(CONFIG_KEY_LOG_ROTATION,            ValidInt));
+   options.push_back(new CConfigOption(CONFIG_KEY_PKG_MANAGER,             NULL));
+   options.push_back(new CConfigOption(CONFIG_KEY_PKG_MANAGER_CREDS,       NULL));
 }
 
 void CConfigFile::Parse(string filename)
@@ -99,6 +101,8 @@ void CConfigFile::Parse(string filename)
                      ; echo ssh_public_key=$ssh_public_key \
                      ; echo ssh_private_key=$ssh_private_key \
                      ; echo log_rotation=$log_rotation \
+                     ; echo pkg_manager=$pkg_manager \
+                     ; echo pkg_manager_creds=$pkg_manager_creds \
                      '";
       else
          command += "; echo cross_depends=${CROSS_DEPENDS[@]} \
@@ -107,6 +111,8 @@ void CConfigFile::Parse(string filename)
                      ; echo download_mirror=$DOWNLOAD_MIRROR \
                      ; echo layers=${LAYERS[@]} \
                      '";
+
+      //printf("running command '%s'\n\n", command.c_str() );
 
       fp = popen(command.c_str(), "r");
       if (fp == NULL)
@@ -195,13 +201,19 @@ void CConfigFile::Update(string filename)
                outbuffer << line_buffer;
          } else
          {
+            printf("** found key to update %s\n", key.c_str());
             // This is key we want to change
             if (Config.unset)
+            {
+               printf("  ** unset\n");
                outbuffer << line_buffer;
+            }   
             else
             {
                new_line = Config.key + "=" + Config.value + "\n";
                outbuffer << new_line;
+
+               printf("  ** set new line '%s'\n", new_line.c_str());
             }
             updated = true;
          }
