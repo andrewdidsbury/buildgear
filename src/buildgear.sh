@@ -455,6 +455,7 @@ do_buildfile_checksum()
 do_source_checksum()
 {
    rm "$BG_SOURCE_SHA256SUM"
+   touch "$BG_SOURCE_SHA256SUM"
 
    if [ "$source" ]; then
       for FILE in ${source[@]}; do
@@ -491,6 +492,7 @@ print_source_checksum()
 {
    local TMPFILE="$BG_SOURCE_SHA256SUM.tmp"
    rm -f $TMPFILE
+   touch $TMPFILE
 
    # For each source file calculate a checksum and append to our tmp file
 

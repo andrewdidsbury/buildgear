@@ -25,6 +25,7 @@
 #include "buildgear/config.h"
 #include "buildgear/filesystem.h"
 #include "buildgear/options.h"
+#include <mutex>
 
 using namespace std;
 
@@ -63,6 +64,12 @@ class CBuildManager : public CFileSystem, COptions
       list<CBuildFile*> active_builds;
       list<CBuildFile*> active_adds;
       bool build_error;
+      
+      list<CBuildFile*> pkg_download_queue;
+      mutex pkg_download_mutex;
+
+      list<CBuildFile*> pkg_upload_queue;
+      mutex pkg_upload_mutex;
    private:
 
       bool UploadFile( string url, string auth, string file);
@@ -70,6 +77,9 @@ class CBuildManager : public CFileSystem, COptions
 
       void GetPackageManagerUrls( CBuildFile * b, string & src_checksum_url, string & build_checksum_url, string & package_url );
       void GetPackageManagerFilePaths( CBuildFile * b, string & src_checksum_path, string & build_checksum_path, string & package_path );
+
+      void DownloadPackagesThread();
+      void UploadPackagesThread();
 };
 
 #define PID_MAX_LENGTH 10

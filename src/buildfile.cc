@@ -193,6 +193,11 @@ bool CBuildFile::BuildfileChecksumMismatch(void)
 
 string CBuildFile::GetSourceChecksum(void)
 {
+  if ( !source_checksum.empty() )
+  {
+     return source_checksum;
+  }
+
   string arguments;
   string command;
 
@@ -230,11 +235,16 @@ string CBuildFile::GetSourceChecksum(void)
   {
   }
   pclose(pipe);
+  source_checksum = result;
   return result;
 }
 
 string CBuildFile::GetBuildfileChecksum(void)
 {
+  if ( !buildfile_checksum.empty() )
+  {
+     return buildfile_checksum;
+  }
   string arguments;
   string command;
 
@@ -272,6 +282,7 @@ string CBuildFile::GetBuildfileChecksum(void)
   {
   }
   pclose(pipe);
+  buildfile_checksum = result;
   return result;
 }
 
