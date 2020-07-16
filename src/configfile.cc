@@ -201,11 +201,12 @@ void CConfigFile::Update(string filename)
                outbuffer << line_buffer;
          } else
          {
-            printf("** found key to update %s\n", key.c_str());
+            //printf("** found key to update %s\n", key.c_str());
+
             // This is key we want to change
             if (Config.unset)
             {
-               printf("  ** unset\n");
+               //printf("  ** unset\n");
                outbuffer << line_buffer;
             }   
             else
@@ -213,7 +214,7 @@ void CConfigFile::Update(string filename)
                new_line = Config.key + "=" + Config.value + "\n";
                outbuffer << new_line;
 
-               printf("  ** set new line '%s'\n", new_line.c_str());
+               //printf("  ** set new line '%s'\n", new_line.c_str());
             }
             updated = true;
          }

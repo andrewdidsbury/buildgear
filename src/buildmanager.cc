@@ -606,7 +606,6 @@ bool CBuildManager::DownloadFile( string url, string filename )
        
    curl_easy_setopt(curl, CURLOPT_FAILONERROR, 1L);
    curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0L);
-   curl_easy_setopt(curl, CURLOPT_TIMEOUT, 20L);
    curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, NULL);
    curl_easy_setopt(curl, CURLOPT_WRITEDATA, fp);
@@ -813,7 +812,7 @@ bool CBuildManager::DownloadPackage( CBuildFile * b )
       return false;
    }
 
-   printf( "Downloading package '%s'...\n", b->short_name.c_str() );
+   //printf( "Downloading package '%s'...\n", b->short_name.c_str() );
 
    CreateDirectory( PACKAGE_DIR "/" + b->type );
 
@@ -831,11 +830,12 @@ bool CBuildManager::DownloadPackage( CBuildFile * b )
         DownloadFile(base_url + package_url, package_path) )
    {
       // Downloaded all files!
-      printf( "Downloaded all packages '%s'\n", b->short_name.c_str() );
+      printf( "Downloaded package '%s'\n", b->short_name.c_str() );
       return true;
    }
    else
    {
+      printf( "Failed to downloaded package '%s'\n", b->short_name.c_str() );
       return false;
    }
 }
