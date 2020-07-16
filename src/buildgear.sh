@@ -371,7 +371,27 @@ do_add()
    log_action "Add      "
 
    if [ -d $BG_BUILD_SYSROOT_DIR ]; then
+
+      ## Untar everything to the right place
+
       tar --dereference -C $BG_BUILD_SYSROOT_DIR -xf $BG_BUILD_PACKAGE
+
+      ## Untar to a temporary folder to fixup .la files
+
+      TMP_UNTAR_DIR="$BG_BUILD_WORK_DIR/tmp/"
+      mkdir -p "$TMP_UNTAR_DIR"
+      rm -rf "$TMP_UNTAR_DIR/*"
+
+      tar --dereference -C $TMP_UNTAR_DIR -xvvf $BG_BUILD_PACKAGE
+
+      # Fix .la files and copy to sysroot
+
+      pushd $TMP_UNTAR_DIR
+      find ./ -name "*.la" -exec sed -i -e "/dependency_libs/s; /usr; `readlink -f $SYSROOT`/usr;g" {} \; \
+                                       -exec sed -i -e "/libdir/s;'/usr;'`readlink -f $SYSROOT`/usr;g" {} \; \
+                                       -exec cp --parents {} $BG_BUILD_SYSROOT_DIR \;
+      popd
+
    fi
 
    if [ "$?" != "0" ]; then
@@ -479,6 +499,9 @@ print_source_checksum()
           sha256sum `get_filename $FILE` &>> "$TMPFILE"
       done
    fi
+
+   # Remove the path from the files
+   sed -i 's/\/.*\///g' "$TMPFILE"
 
    SHA256SUM=`sha256sum "$TMPFILE" | awk '{print $1}'`
    echo $SHA256SUM

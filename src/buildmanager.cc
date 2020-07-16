@@ -301,7 +301,7 @@ void CBuildManager::Do(string action, CBuildFile* buildfile)
 
    // Set required script arguments
 
-   arguments +=  " --BG_SHORT_NAME '" + buildfile->short_name + "'";
+   arguments += " --BG_SHORT_NAME '" + buildfile->short_name + "'";
    arguments += " --BG_BUILD_FILE '" + buildfile->filename + "'";
    arguments += " --BG_ACTION '" + action + "'";
    arguments += " --BG_BUILD_FILES_CONFIG '" BUILD_FILES_CONFIG "'";
@@ -565,21 +565,21 @@ bool CBuildManager::IsBuildRequired( CBuildFile * b )
    // Does the package exist?
    if ( !PackageExists( b ) )
    {
-      printf("*** Building '%s' because package doesn't exist ***\n", b->short_name.c_str());
+      //printf("*** Building '%s' because package doesn't exist ***\n", b->short_name.c_str());
       return true;
    }
 
    // Does the buildfile checksum match?
    if ( BuildfileChecksumMismatch( b ) )
    {
-      printf("*** Building '%s' because buildfile checksum doesn't match ***\n", b->short_name.c_str());
+      //printf("*** Building '%s' because buildfile checksum doesn't match ***\n", b->short_name.c_str());
       return true;
    }
 
    // Does the source checksum match ?
    if ( SourceChecksumMismatch( b  ) )
    {
-      printf("*** Building '%s' because source checksum doesn't match ***\n", b->short_name.c_str());
+      //printf("*** Building '%s' because source checksum doesn't match ***\n", b->short_name.c_str());
       return true;
    }
 
@@ -588,17 +588,19 @@ bool CBuildManager::IsBuildRequired( CBuildFile * b )
 
 bool CBuildManager::DownloadFile( string url, string filename )
 {
-   printf("Attempting download of '%s' to path '%s'...\n", url.c_str(), filename.c_str() );
+   //printf("Attempting download of '%s' to path '%s'...\n", url.c_str(), filename.c_str() );
 
-   FILE * fp = fopen(filename.c_str(),"wb");
+   FILE * fp = fopen(filename.c_str(), "wb");
    if ( fp == NULL )
    {
+      printf("Failed to open file '%s' for writing, err %d\n", filename.c_str(), errno);
       return false; 
    }
 
    CURL * curl = curl_easy_init();                                                                                                                                                                                                                                                           
    if (curl == NULL)
    {
+      printf("failed to init curl");
       return false;
    }
        
@@ -612,8 +614,8 @@ bool CBuildManager::DownloadFile( string url, string filename )
    curl_easy_cleanup(curl);
    fclose(fp);
 
-   printf("Download from package manager %s\n", (res == CURLE_OK) ? "SUCCEEDED!" : "FAILED :(" );
-
+   //printf("Download from package manager %s (res %d)\n", (res == CURLE_OK) ? "SUCCEEDED!" : "FAILED :(", res );
+   
    if ( res != CURLE_OK )
    {
       //remove(filename.c_str());
@@ -738,9 +740,6 @@ void CBuildManager::PushToPackageManager( list<CBuildFile*> *buildfiles )
             printf("  Failed to push '%s' to Package Manager\n", b->short_name.c_str() );
          }
       }
-
-      // Just try the first package
-      break;
    }
 }
 
@@ -776,7 +775,7 @@ bool CBuildManager::SearchPackageManger( string name )
       //https://nexus.build-cluster.lan/service/rest/v1/search?repository=buildgear&name=test%2Farran%2Fcross%2Ff548249369e28b79569dd045f562cfd4e4ba990160dfde9089ff484c72ab0484-bc723ff591689ad2a3a0fe58c2af10d6167920b538ffdfb1e87b416f8c3bf6db%2Fbusybox%231.31.1-1.pkg.tar.gz
 
       stringstream url_str;
-      url_str<<server<<"/service/rest/v1/search?repository="<<repo<<"&name="<<project<<"/"<<name;
+      url_str<<server<<"/service/rest/v1/search?repository="<<repo<<"&name="<<project<<name;
 
       //printf("original url = '%s', idx1 = %d, idx2 = %d\n", url.c_str(), idx1, idx2 );
       printf("Searching on server '%s' repo '%s' project '%s' for name '%s'. URL '%s'\n",
@@ -830,6 +829,8 @@ bool CBuildManager::DownloadPackage( CBuildFile * b )
       printf("Package manager not configured\n");
       return false;
    }
+
+   CreateDirectory( PACKAGE_DIR "/" + b->type );
 
    // Download the buildfile checksums and package
    string src_checksum_path, build_checksum_path, package_path;
@@ -909,14 +910,12 @@ void CBuildManager::Build(list<CBuildFile*> *buildfiles)
    thread script_output_thread(script_output);
    script_output_thread.detach();
 
-   int c = 0;
    // Set build action based on source and buildfile checksums and package existance
    for (it=buildfiles->begin(); it!=buildfiles->end(); it++)
    {
       CBuildFile * b = *it;
-      printf("   %d - %s\n", c, b->short_name.c_str() );
-      c++;
-      
+      b->build = false;
+
       // Is a build required ?
       if ( IsBuildRequired( b ) )
       {
@@ -926,14 +925,18 @@ void CBuildManager::Build(list<CBuildFile*> *buildfiles)
             // Double check if a build is still required
             if ( IsBuildRequired( b ) )
             {
+               printf("'%s' package downloaded but build still required\n", b->short_name.c_str());
                b->build = true;
             }
          }
          else
          {
+            printf("Cannot download package '%s'\n", b->short_name.c_str());
             b->build = true;
          }
       }
+      
+      if ( b->build ) printf("  BUILDING '%s'\n", b->short_name.c_str() );
    }
 
    // Set build action of all builds (based on dependencies build status)
