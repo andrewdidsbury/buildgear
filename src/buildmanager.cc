@@ -642,14 +642,14 @@ bool CBuildManager::UploadFile( string url, string auth, string file)
    fd = fopen(file.c_str(), "rb");
    if(fd == NULL)
    {
-      printf("Failed to open file\n");
+      printf("Failed to open file '%s' for upload \n", file.c_str());
       return false;
    }
  
    // get the file size
    if(fstat(fileno(fd), &file_info) != 0)
    {
-      printf("Failed to get file size\n");
+      printf("Failed to get file size of '%s'\n", file.c_str());
       return false;
    }
  
@@ -830,12 +830,12 @@ bool CBuildManager::DownloadPackage( CBuildFile * b )
         DownloadFile(base_url + package_url, package_path) )
    {
       // Downloaded all files!
-      printf( "Downloaded package '%s'\n", b->short_name.c_str() );
+      printf( "Downloaded package '%s', src=%s, bld=%s\n", b->short_name.c_str(), b->source_checksum.c_str(), b->buildfile_checksum.c_str() );
       return true;
    }
    else
    {
-      printf( "Failed to downloaded package '%s'\n", b->short_name.c_str() );
+      printf( "Failed to downloaded pkg '%s', src=%s, bld=%s\n", b->short_name.c_str(), b->source_checksum.c_str(), b->buildfile_checksum.c_str() );
       return false;
    }
 }
@@ -909,7 +909,7 @@ void CBuildManager::UploadPackagesThread()
               UploadFile(base_url + build_checksum_url, creds, build_checksum_path) &&
               UploadFile(base_url + package_url, creds, package_path) )
          {
-            printf("  Pushed '%s' to Package Manager\n", bf->short_name.c_str() );
+            printf("  Pushed '%s' to Package Manager, src=%s, bld=%s\n", bf->short_name.c_str(), bf->source_checksum.c_str(), bf->buildfile_checksum.c_str() );
          }
          else
          {
