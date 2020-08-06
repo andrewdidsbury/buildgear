@@ -810,13 +810,13 @@ bool CBuildManager::DownloadPackage( CBuildFile * b )
 {
    if ( !b->CanUsePackageManager() )
    {
-      printf("Package manager disabled for '%s'\n", b->short_name.c_str());
+      printf("  Package manager disabled for '%s'\n", b->short_name.c_str());
       return false;
    }
 
    if ( Config.bg_config[CONFIG_KEY_PKG_MANAGER].empty() )
    {
-      printf("Package manager not configured\n");
+      printf("  Package manager not configured\n");
       return false;
    }
 
@@ -838,12 +838,12 @@ bool CBuildManager::DownloadPackage( CBuildFile * b )
         DownloadFile(base_url + package_url, package_path) )
    {
       // Downloaded all files!
-      printf( "Downloaded package '%s', src=%s, bld=%s\n", b->short_name.c_str(), b->source_checksum.c_str(), b->buildfile_checksum.c_str() );
+      printf( "  Downloaded package '%s'\n", b->name.c_str());
       return true;
    }
    else
    {
-      printf( "Failed to downloaded pkg '%s', src=%s, bld=%s\n", b->short_name.c_str(), b->source_checksum.c_str(), b->buildfile_checksum.c_str() );
+      printf( "  Failed to downloaded pkg '%s'\n", b->name.c_str());
       return false;
    }
 }
@@ -917,11 +917,11 @@ void CBuildManager::UploadPackagesThread()
               UploadFile(base_url + build_checksum_url, creds, build_checksum_path) &&
               UploadFile(base_url + package_url, creds, package_path) )
          {
-            printf("  Pushed '%s' to Package Manager, src=%s, bld=%s\n", bf->short_name.c_str(), bf->source_checksum.c_str(), bf->buildfile_checksum.c_str() );
+            printf("  Uploaded '%s' to Package Manager\n", bf->name.c_str());
          }
          else
          {
-            printf("  Failed to push '%s' to Package Manager\n", bf->short_name.c_str() );
+            printf("  Failed to push '%s' to Package Manager\n", bf->name.c_str() );
          }
       }
    }
@@ -958,7 +958,7 @@ void CBuildManager::DownloadPackagesThread()
          }
          else
          {
-            printf("'%s' package downloaded but build still required\n", bf->short_name.c_str());
+            printf("  '%s' package downloaded but build still required\n", bf->name.c_str());
          }
       }
    }
