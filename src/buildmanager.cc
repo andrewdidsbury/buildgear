@@ -676,7 +676,7 @@ bool CBuildManager::UploadFile( string url, string auth, string file)
       // Check for errors
       if(res != CURLE_OK)
       {
-         printf("File upload failed, res %d\n", res);
+         printf("  File upload failed, res %d, url '%s'\n", res, url.c_str());
          return false;
       }
       else 
@@ -696,8 +696,10 @@ void CBuildManager::PushToPackageManager( list<CBuildFile*> *buildfiles )
    {
       return;
    }
-
-   printf("Attempting to update packages on Package Manager\n");
+   auto t1 = std::chrono::steady_clock::now();
+   
+   cout << endl;
+   cout << "Uploading Packages ..." << endl;
 
    // Build a list of the packages that can be uploaded
 
@@ -726,7 +728,11 @@ void CBuildManager::PushToPackageManager( list<CBuildFile*> *buildfiles )
       }
    }
 
-   printf("Upload complete\n");
+   auto t2 = std::chrono::steady_clock::now();
+   auto ul_duration = std::chrono::duration_cast<std::chrono::seconds>(t2 - t1);
+
+   cout << "Uploading Packages took " << beautify_duration(ul_duration) << endl;
+   cout << endl;
 }
 
 bool CBuildManager::SearchPackageManger( string name )
