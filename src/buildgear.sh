@@ -702,14 +702,14 @@ main()
             echo "Build on layer '$BG_LAYER'"
          fi
 
-         do_checksum
+         #do_checksum
          do_extract
          do_build
          if [ "$BG_NO_STRIP" = "no" ]; then
             do_strip
          fi
          do_package
-         do_footprint
+         #do_footprint
          do_buildfile_checksum
          do_source_checksum
          if [ "$BG_KEEP_WORK" = "no" ]; then

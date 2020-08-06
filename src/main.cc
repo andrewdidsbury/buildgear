@@ -504,7 +504,7 @@ int main (int argc, char *argv[])
    cout << "Configured parallel builds..    " << Config.bg_config[CONFIG_KEY_PARALLEL_BUILDS] << endl;
 
    /* Delete old work */
-   cout << "Cleaning old work directory..   " << flush;
+   cout << "Cleaning old work directory..   " << endl;
    BuildManager.CleanWork();
    cout << "Done" << endl << endl;
 
@@ -515,7 +515,7 @@ int main (int argc, char *argv[])
       Stats.enableCapture();
 
    /* Start building */
-   cout << "Building '" << Config.name << "'.. " << flush;
+   cout << "Building '" << Config.name << "'.. " << endl;
    BuildManager.Build(&Dependency.parallel_build_order);
    if (Config.keep_work == "no" && !BuildManager.build_error)
       BuildManager.CleanWork();

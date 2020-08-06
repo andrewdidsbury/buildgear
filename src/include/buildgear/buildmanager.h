@@ -51,7 +51,7 @@ class CBuildManager : public CFileSystem, COptions
       bool SourceUpToDate(CBuildFile *);
       bool BuildfileChecksumMismatch(CBuildFile *);
       bool SourceChecksumMismatch(CBuildFile *);
-      bool DepBuildNeeded(CBuildFile *buildfile, time_t age);
+      bool DepBuildNeeded(CBuildFile *buildfile);
       void BuildOutputTick(CBuildFile *buildfile);
       void BuildOutputPrint(void);
       void KillBuilds(void);

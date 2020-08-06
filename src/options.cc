@@ -493,6 +493,7 @@ void COptions::ShowVersion(void)
 {
    cout << "Build Gear " << VERSION << "\n";
    cout << "Copyright (c) 2011-2014 Martin Lund\n";
+   cout << "Copyright (c) 2020 Andrew Didsbury\n";
    cout << "\n";
    cout << "License GPLv2: GNU GPL version 2 or later <http://gnu.org/licenses/gpl-2.0.html>.\n";
    cout << "This is free software: you are free to change and redistribute it.\n";

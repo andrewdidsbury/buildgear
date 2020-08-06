@@ -37,6 +37,8 @@ class CBuildFile : public CUtility
       bool BuildfileChecksumMismatch(void);
       string GetSourceChecksum(void);
       string GetBuildfileChecksum(void);
+      string GetDepChecksum(void);
+      string GetChecksum(void);
       bool CanUsePackageManager() { return package_manager != "false"; }
       void Parse(void);
       string filename;
@@ -50,8 +52,11 @@ class CBuildFile : public CUtility
       string source;
       string depends;
       string package_manager;
+
+      string checksum;
       string source_checksum;
       string buildfile_checksum;
+      string dep_checksum;
 
       struct
       {
@@ -76,6 +81,8 @@ class CBuildFile : public CUtility
       thread *log_thread;
       pid_t pid;
    private:
+
+   void GetDepChecksum( CBuildFile * build, stringstream & ss );
 };
 
 #endif

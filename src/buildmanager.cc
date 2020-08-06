@@ -111,27 +111,30 @@ CBuildThread::CBuildThread(CBuildFile *buildfile)
 
 void CBuildThread::operator()()
 {
+   std::chrono::steady_clock::time_point t1, t2;
+
    // Semaphore is released by Do("build")
    sem_wait(&build_semaphore);
 
    // Only build if build() function is available
    if (buildfile->build_function == "yes")
    {
+      t1 = std::chrono::steady_clock::now();
+
       // Include buildfile to active builds
       pthread_mutex_lock(&active_builds_mutex);
       BuildManager.active_builds.push_back(buildfile);
       pthread_mutex_unlock(&active_builds_mutex);
 
       pthread_mutex_lock(&cout_mutex);
-      BuildOutputPrint();
+      if ( buildfile->build ) cout << "[!] Build:  " << left << setw(25) << buildfile->name << " ..." << endl;
       pthread_mutex_unlock(&cout_mutex);
 
       std::chrono::steady_clock::time_point t1 = std::chrono::steady_clock::now();
 
       Do("build", buildfile);
 
-      std::chrono::steady_clock::time_point t2 = std::chrono::steady_clock::now();
-
+      t2 = std::chrono::steady_clock::now();
       auto build_duration = std::chrono::duration_cast<std::chrono::seconds>(t2 - t1);
 
       // Test for produced package output
@@ -151,12 +154,14 @@ void CBuildThread::operator()()
 
       // Update output
       pthread_mutex_lock(&cout_mutex);
-      BuildOutputPrint();
+      if ( buildfile->build ) cout << "[=] Built:  " << left << setw(25) << buildfile->name << " (took " << beautify_duration(build_duration) << ")" << endl;
       pthread_mutex_unlock(&cout_mutex);
 
       // Don't add last build or builds which have no package output
       if ((buildfile != last_build) && buildfile->have_pkg)
       {
+         t1 = std::chrono::steady_clock::now();
+
          pthread_mutex_lock(&add_mutex);
 
          pthread_mutex_lock(&active_adds_mutex);
@@ -179,16 +184,20 @@ void CBuildThread::operator()()
             return;
          }
 
+         t2 = std::chrono::steady_clock::now();
+         auto add_duration = std::chrono::duration_cast<std::chrono::seconds>(t2 - t1);
+         cout << "[+] Added:  " << left << setw(25) << buildfile->name << " (took " << beautify_duration(add_duration) << ")" << endl;
+
          // Output added and advance cursor
-         cout << left << setw(OUTPUT_PREFIX_SIZE) << "   Added";
-         cout << setw(Dependency.max_name_length + 2) << "'" + buildfile->name + "'";
-         if (buildfile->layer != DEFAULT_LAYER_NAME)
-            cout << " [" << buildfile->layer << "]";
-         cout << " (" << beautify_duration(build_duration) << ")";
-         Cursor.clear_rest_of_line();
-         cout << endl;
-         Cursor.reset_ymaxpos();
-         BuildOutputPrint();
+         //cout << left << setw(OUTPUT_PREFIX_SIZE) << "   Added";
+         //cout << setw(Dependency.max_name_length + 2) << "'" + buildfile->name + "'";
+         //if (buildfile->layer != DEFAULT_LAYER_NAME)
+         //   cout << " [" << buildfile->layer << "]";
+         //
+         //Cursor.clear_rest_of_line();
+         //cout << endl;
+         //Cursor.reset_ymaxpos();
+         //BuildOutputPrint();
          pthread_mutex_unlock(&cout_mutex);
       }
 
@@ -204,7 +213,7 @@ void CBuildThread::operator()()
       // in case build function was removed
       // we need remove old build package
       if (FileExist(PackagePath(buildfile)))
-	 remove(PackagePath(buildfile).c_str());
+         remove(PackagePath(buildfile).c_str());
    }
    sem_post(&build_semaphore);
 
@@ -532,29 +541,22 @@ bool CBuildManager::BuildfileChecksumMismatch(CBuildFile *buildfile)
       return false;
 }
 
-bool CBuildManager::DepBuildNeeded(CBuildFile *buildfile, time_t age)
+bool CBuildManager::DepBuildNeeded( CBuildFile *buildfile )
 {
    list<CBuildFile*>::iterator it;
-
-   string package(PackagePath(buildfile));
-
-   if (FileExist(package))
-      age = Age(package);
 
    for (it=buildfile->dependency.begin(); it!=buildfile->dependency.end(); ++it)
    {
       if ((*it)->build)
       {
-         printf("*** Building '%s' because dependency '%s' is being built ***\n", buildfile->short_name.c_str(), (*it)->short_name.c_str());
+         //printf("*** Building '%s' because dependency '%s' is being built ***\n", buildfile->short_name.c_str(), (*it)->short_name.c_str());
          return true;
       }
 
-      //package = PackagePath(*it);
-      //if (FileExist(package) && (difftime(Age(package), age) > 0))
-      //   return true;
-
-      if (DepBuildNeeded(*it, age))
-         return true;
+      if (DepBuildNeeded(*it))
+      {   
+          return true;
+      }
    }
 
    return false;
@@ -964,7 +966,7 @@ void CBuildManager::GetPackageManagerUrls( CBuildFile * b, string & src_checksum
    // https://nexus.build-cluster.lan/repository/buildgear/arran/cross/name/chk/name.build.sha256sum
    // https://nexus.build-cluster.lan/repository/buildgear/arran/cross/name/chk/name#version.release.tar.gz
 
-   string chk = b->GetSourceChecksum() + "-" + b->GetBuildfileChecksum();
+   string chk = b->GetChecksum();
 
    stringstream src_str;
    src_str << "/" << b->name << "/" << chk << "/" << b->short_name << ".src.sha256sum";
@@ -982,6 +984,7 @@ void CBuildManager::GetPackageManagerUrls( CBuildFile * b, string & src_checksum
 
 void CBuildManager::Build(list<CBuildFile*> *buildfiles)
 {
+   std::chrono::steady_clock::time_point t1, t2;
    list<CBuildFile*>::iterator it;
    list<CBuildFile*>::reverse_iterator rit;
 
@@ -1001,66 +1004,45 @@ void CBuildManager::Build(list<CBuildFile*> *buildfiles)
 
    pkg_download_queue.clear();
    
+   cout << endl;
+   cout << "Analysing buildfiles.." << endl;
+   t1 = std::chrono::steady_clock::now();
+
    for (it=buildfiles->begin(); it!=buildfiles->end(); it++)
    {
       CBuildFile * b = *it;
       b->build = false;
 
-      //Always call these functions now to cache the checksums
+      //Always call these functions now to cache the checksums, 
 
       string src = b->GetSourceChecksum();
       string bld = b->GetBuildfileChecksum();
+
       //printf(" Found package '%s' src %s bld %s\n", b->short_name.c_str(), src.c_str(), bld.c_str());
 
       // Is a build required ?
       if ( IsBuildRequired( b ) )
       {
          b->build = true;
-
-         if ( b->CanUsePackageManager() )
-         {
-            pkg_download_queue.push_back( b );
-         }
       }
-   }
-
-   // Start N threads to attempt to download packages
-
-   list<thread> pkg_dl_threads;
-   uint max_dl = (uint)stoi(Config.bg_config[CONFIG_KEY_DOWNLOAD_CONNECTIONS]);
-   for ( uint i = 0 ; i < max_dl ; i++ )
-   {
-      pkg_dl_threads.push_back( thread( &CBuildManager::DownloadPackagesThread, this ) );
-   }
-
-   // wait for them to stop
-
-   for ( auto it = pkg_dl_threads.begin() ; it != pkg_dl_threads.end() ; it++ )
-   {
-      if ( it->joinable() )
-      {
-         it->join();
-      }
-   }
-
-   // Log what is going to be built
-
-   for (it=buildfiles->begin(); it!=buildfiles->end(); it++)
-   {
-      if ( (*it)->build ) printf("  BUILDING '%s'\n", (*it)->short_name.c_str() );
    }
 
    // Set build action of all builds (based on dependencies build status)
+
    for (it=buildfiles->begin(); it!=buildfiles->end(); it++)
    {
       CBuildFile * b = *it;
+
+      // Get the dependency checksum
+      string dep = b->GetDepChecksum();
+      string chk = b->GetChecksum();
 
       // Skip if build action already set
       if ( b->build)
          continue;
 
       // If one or more dependencies needs to be build
-      if (DepBuildNeeded(b, numeric_limits<time_t>::max()))
+      if (DepBuildNeeded(b))
       {
          // Then build is needed
          b->build = true;
@@ -1070,6 +1052,60 @@ void CBuildManager::Build(list<CBuildFile*> *buildfiles)
          // Else no build is needed
          b->build = false;
       }
+   }
+
+   // Log what is going to be built
+
+   for (it=buildfiles->begin(); it!=buildfiles->end(); it++)
+   {
+      CBuildFile * b = *it;
+
+      if ( b->build )
+      {
+         printf("  Building '%s'\n", b->name.c_str() );
+
+         if ( b->CanUsePackageManager() )
+         {
+            pkg_download_queue.push_back( (*it) );
+         }
+      } 
+   }
+   
+   t2 = std::chrono::steady_clock::now();
+   auto bf_duration = std::chrono::duration_cast<std::chrono::seconds>(t2 - t1);
+   cout << "Analysing buildfiles took " << beautify_duration(bf_duration) << endl;
+   cout << endl;
+
+   // Start N threads to attempt to download packages
+
+   if ( !pkg_download_queue.empty() )
+   {
+      cout << endl;
+      cout << "Downloading Packages ..." << endl;
+      t1 = std::chrono::steady_clock::now();
+   
+      list<thread> pkg_dl_threads;
+      uint max_dl = (uint)stoi(Config.bg_config[CONFIG_KEY_DOWNLOAD_CONNECTIONS]);
+      for ( uint i = 0 ; i < max_dl ; i++ )
+      {
+         pkg_dl_threads.push_back( thread( &CBuildManager::DownloadPackagesThread, this ) );
+      }
+
+      // wait for them to stop
+
+      for ( auto it = pkg_dl_threads.begin() ; it != pkg_dl_threads.end() ; it++ )
+      {
+         if ( it->joinable() )
+         {  
+            it->join();
+         }
+      }
+
+      t2 = std::chrono::steady_clock::now();
+      auto dl_duration = std::chrono::duration_cast<std::chrono::seconds>(t2 - t1);
+
+      cout << "Downloading Packages took " << beautify_duration(dl_duration) << endl;
+      cout << endl;
    }
 
    // Only build if main build requires a build
@@ -1315,6 +1351,7 @@ void CBuildManager::BuildOutputTick(CBuildFile *buildfile)
 
 void CBuildManager::BuildOutputPrint()
 {
+   #if 0
    string indicator;
    list<CBuildFile*>::const_iterator it;
    int lines = 0;
@@ -1374,4 +1411,5 @@ void CBuildManager::BuildOutputPrint()
    Cursor.clear_below();
    Cursor.line_up(lines);
    cout << "\r" << flush;
+   #endif
 }

@@ -286,6 +286,65 @@ string CBuildFile::GetBuildfileChecksum(void)
   return result;
 }
 
+void CBuildFile::GetDepChecksum( CBuildFile * build, stringstream & ss )
+{
+   for (auto it = build->dependency.begin(); it != build->dependency.end(); ++it)
+   {
+      GetDepChecksum(*it, ss);
+      
+      ss << (*it)->short_name << " " << (*it)->source_checksum << "-" << (*it)->buildfile_checksum << std::endl;
+   }
+}
+
+string CBuildFile::GetDepChecksum(void)
+{
+   if ( !dep_checksum.empty() )
+   {
+     return dep_checksum;
+   }
+
+   stringstream ss;
+   GetDepChecksum( this, ss );
+   dep_checksum = ss.str();
+
+   //printf("## %s has dep checksum file '%s'", short_name.c_str(), dep_checksum.c_str());
+
+   return dep_checksum;
+}
+
+string CBuildFile::GetChecksum(void)
+{
+   if ( !checksum.empty() )
+   {
+      return checksum;
+   }
+
+   string cmd = "echo -e \"" + GetSourceChecksum() + GetBuildfileChecksum() + GetDepChecksum() + "\" | sha256sum | awk '{print $1}'";
+   
+   char buffer[128];
+   std::string result = "";
+   FILE* pipe = popen(cmd.c_str(), "r");
+   if (!pipe) throw std::runtime_error("popen() failed!");
+   try 
+   {
+      // Read the first line, remove the newline
+      if (fgets(buffer, sizeof buffer, pipe) != NULL) 
+      {
+         size_t len = strlen(buffer);
+         if ( len > 0 && buffer[len-1] == '\n' ) buffer[len-1] = 0;
+         result = buffer;
+      }
+   } 
+   catch (...) 
+   {
+   }
+   pclose(pipe);
+
+   checksum = result;
+   //printf("## %s has checksum %s\n", short_name.c_str(), checksum.c_str() );   
+   return checksum;
+}
+
 void CBuildFile::Parse(void)
 {
    FILE *fp;

@@ -3,7 +3,8 @@
 make clean
 
 ./autogen.sh
-./configure --prefix=`pwd`/output/
-make -j 3
-make install
+#./configure --prefix=`pwd`/output/
+./configure
+make -j 4
+sudo make install
 
